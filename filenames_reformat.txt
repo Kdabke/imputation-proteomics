@@ -1,8 +1,0 @@
-og_fragment_ms_0.txt	og_fragment_ms_0_reformat.csv
-og_fragment_ms_knn.txt	og_fragment_ms_knn_reformat.csv
-og_fragment_ms_minDet.txt	og_fragment_ms_minDet_reformat.csv
-og_fragment_ms_minProb.txt	og_fragment_ms_minProb_reformat.csv
-og_fragment_ms_svd.txt	og_fragment_ms_svd_reformat.csv
-og_fragment_ms_bpca.txt	og_fragment_ms_bpca_reformat.csv
-og_fragment_ms_lls.txt	og_fragment_ms_lls_reformat.csv
-og_fragment_ms_rf.txt	og_fragment_ms_rf_reformat.csv
