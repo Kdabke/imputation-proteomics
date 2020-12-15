@@ -1,0 +1,8 @@
+# docker location of .mzml files
+/common/dabkek/openswath_newlib/docker/
+
+# file location of featurealigner2states results
+/common/dabkek/Dilution_re_analysis_swath/feat_align_all_replicates_3_unnorm_msstats.csv
+
+# location of DDA library for DIA analysis
+/common/dabkek/POCROC_SCXLibrary/tsvtotraml/POCROC_SCX_fraction_DDAlib_SpecLib_iRT_FULLMERGE_TTOF_LUMOS_PUBLISHED_cons_decoys_R.TraML
