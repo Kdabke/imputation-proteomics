@@ -1,0 +1,383 @@
+---
+title: "Figure5_imputation"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Libraries
+```{r message=FALSE}
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(ggplot2)
+library(imputeLCMD)
+library(pcaMethods)
+library(missForest)
+library(ComplexHeatmap)
+set.seed(4242)
+library(hydroGOF)
+library(ggcorrplot)
+library(corrplot)
+library(circlize)
+library(RColorBrewer)
+library(viridis)
+library(readxl)
+library(colorspace)
+library(DescTools)
+```
+
+
+# Figure5.A
+```{r}
+classic_criteria_pocroc <- read.csv("classic_criteria_64%_pocroc.csv")
+
+classic_criteria_pocroc <- column_to_rownames(classic_criteria_pocroc, "X")
+
+PSS_pocroc <- subset(classic_criteria_pocroc, select = c(PSS))
+classic_criteria_pocroc <- subset(classic_criteria_pocroc, select = -c(PSS))
+
+colnames(classic_criteria_pocroc) <- c("ACC", "NRMSE")
+rownames(classic_criteria_pocroc) <- c("Random Forest", "LLS", "BPCA", 
+                                       "KNNmethod", "minDet", "SVDmethod",  
+                                       "Zero", "minProb")
+
+rownames(PSS_pocroc) <- rownames(classic_criteria_pocroc)
+
+classic_criteria_pocroc <- classic_criteria_pocroc[,c(2,1)]
+
+SOR_pocroc <- read.csv("SORNRMSE_64%_pocroc.csv", stringsAsFactors = F)
+SOR_pocroc$Methods <- c("Random Forest", "LLS", "BPCA", "minDet",
+                        "KNNmethod", "minProb","Zero", "SVDmethod")
+
+SOR_pocroc <- SOR_pocroc[order(match(SOR_pocroc$Methods,rownames(classic_criteria_pocroc))),]
+
+
+rownames(SOR_pocroc) <- NULL
+
+SOR_pocroc <- column_to_rownames(SOR_pocroc, "Methods")
+colAnn2 <- rowAnnotation(`SOR_NRMSE` = anno_barplot(SOR_pocroc$SOR),
+                         width = unit(2, "cm"))
+colAnn3 <- rowAnnotation(`PSS` = anno_barplot(PSS_pocroc$PSS),
+                         width = unit(2, "cm"))
+
+s9 <- sequential_hcl(9, "Reds", rev = T)
+
+
+hmap <- Heatmap(
+  classic_criteria_pocroc,
+  name = "Classic criteria",
+  show_row_names = T,
+  show_column_names = T,
+  cluster_rows = F,
+  cluster_columns = F,
+  show_column_dend = TRUE,
+  show_row_dend = FALSE,
+  row_dend_reorder = TRUE,
+  column_dend_reorder = TRUE,
+  clustering_method_rows = "ward.D2",
+  clustering_method_columns = "ward.D2",
+  width = unit(100, "mm"), right_annotation = colAnn2,
+  left_annotation = colAnn3,
+  col = s9,
+  column_names_gp = gpar(fontsize = 25),
+  row_names_gp = gpar(fontsize = 25),
+  heatmap_legend_param = list(
+    title = "Classic criteria",
+    title_position = "leftcenter-rot"))
+
+draw(hmap, heatmap_legend_side="left", annotation_legend_side="right")
+```
+
+
+# Figure 5.B
+```{r}
+prot_criteria_pocroc <- read.csv("prot_criteria_pocroc.csv")
+
+prot_criteria_pocroc <- column_to_rownames(prot_criteria_pocroc, "X")
+
+colnames(prot_criteria_pocroc) <- c("ACC_PPI", "ACC_CORUM",
+                                    "ACC_peppro")
+
+rownames(prot_criteria_pocroc) <- c("LLS", "BPCA", "Random Forest", "SVDmethod",
+                                    "KNNmethod", "minDet", "minProb","Zero")
+
+prot_criteria_pocroc <- prot_criteria_pocroc[,c(3,2,1)]
+
+hmap <- Heatmap(
+  prot_criteria_pocroc,
+  name = "Proteomic criteria",
+  show_row_names = T,
+  show_column_names = T,
+  cluster_rows = F,
+  cluster_columns = F,
+  show_column_dend = TRUE,
+  show_row_dend = FALSE,
+  row_dend_reorder = TRUE,
+  column_dend_reorder = TRUE,
+  clustering_method_rows = "ward.D2",
+  clustering_method_columns = "ward.D2",
+  width = unit(100, "mm"),
+  col = s9,
+  column_names_gp = gpar(fontsize = 25),
+  row_names_gp = gpar(fontsize = 25),
+  heatmap_legend_param = list(
+    title = "Proteomic criteria",
+    title_position = "leftcenter-rot"))
+
+draw(hmap, heatmap_legend_side="left", annotation_legend_side="right")
+```
+
+
+
+# Figure 5.C
+```{r}
+protein_quant_minDet_pocroc <- read.csv("protein_quant_pocroc_norm_minDet.csv")
+
+protein_quant_knn_pocroc <- read.csv("protein_quant_pocroc_norm_knn.csv")
+
+protein_quant_minProb_pocroc <- read.csv("protein_quant_pilot_minProb.csv")
+
+protein_quant_svd_pocroc <- read.csv("protein_quant_pilot_svd.csv")
+
+protein_quant_bpca_pocroc <- read.csv("protein_quant_pilot_bpca.csv")
+
+protein_quant_norm_noimp <- read.csv("protein_quant_norm_noimp.csv")
+
+protein_quant_lls_pocroc <- read.csv("protein_quant_pilot_lls.csv")
+
+protein_quant_rf_pocroc <- read.csv("protein_quant_pilot_rf_log2.csv")
+
+protein_quant_norm_noimp <- as.data.frame(protein_quant_norm_noimp[-1,-1])
+
+rownames(protein_quant_norm_noimp) <- NULL
+protein_quant_norm_noimp <- column_to_rownames(protein_quant_norm_noimp, "Protein")
+
+
+
+protein_quant_minDet_pocroc <- as.data.frame(protein_quant_minDet_pocroc[-1,-1])
+protein_quant_knn_pocroc <- as.data.frame(protein_quant_knn_pocroc[-1,-1])
+protein_quant_rf_pocroc <- as.data.frame(protein_quant_rf_pocroc[-1,-1])
+protein_quant_minProb_pocroc <- as.data.frame(protein_quant_minProb_pocroc[-1,-1])
+protein_quant_svd_pocroc <- as.data.frame(protein_quant_svd_pocroc[-1,-1])
+protein_quant_bpca_pocroc <- as.data.frame(protein_quant_bpca_pocroc[-1,-1])
+protein_quant_lls_pocroc <- as.data.frame(protein_quant_lls_pocroc[-1,-1])
+
+all(colnames(protein_quant_lls_pocroc) == colnames(protein_quant_rf_pocroc))
+all(colnames(protein_quant_bpca_pocroc) == colnames(protein_quant_rf_pocroc))
+all(colnames(protein_quant_knn_pocroc) == colnames(protein_quant_rf_pocroc))
+all(colnames(protein_quant_minDet_pocroc) == colnames(protein_quant_rf_pocroc))
+all(colnames(protein_quant_minProb_pocroc) == colnames(protein_quant_rf_pocroc))
+all(colnames(protein_quant_svd_pocroc) == colnames(protein_quant_rf_pocroc))
+all(colnames(protein_quant_svd_pocroc) == colnames(protein_quant_rf_pocroc))
+
+protein_quant_norm_noimp <- protein_quant_norm_noimp[,c(1,3,2,5,4,8,10,9,7,6,12,11,14,13)]
+
+column_names <- colnames(protein_quant_bpca_pocroc)
+column_names <- sub('.', '', column_names[-1]) 
+
+phase <- colnames(protein_quant_norm_noimp)
+
+phase <- substr(phase, start = 1, stop = 4)
+
+column_names <- c("Protein", paste(phase, column_names, sep = ""))
+
+colnames(protein_quant_lls_pocroc) <- column_names
+colnames(protein_quant_knn_pocroc) <- column_names
+colnames(protein_quant_minDet_pocroc) <- column_names
+colnames(protein_quant_rf_pocroc) <- column_names
+colnames(protein_quant_minProb_pocroc) <- column_names
+colnames(protein_quant_svd_pocroc) <- column_names
+colnames(protein_quant_bpca_pocroc) <- column_names
+
+protein_quant_lls_pocroc <- na.omit(protein_quant_lls_pocroc)
+
+
+common_protein <- intersect(rownames(protein_quant_norm_noimp), protein_quant_bpca_pocroc$Protein)
+common_protein <- intersect(common_protein, protein_quant_minProb_pocroc$Protein)
+common_protein <- intersect(common_protein, protein_quant_lls_pocroc$Protein)
+
+
+protein_quant_norm_noimp <- filter(protein_quant_norm_noimp, rownames(protein_quant_norm_noimp) %in% common_protein)
+protein_quant_minDet_pocroc <- filter(protein_quant_minDet_pocroc, Protein %in% common_protein)
+protein_quant_minProb_pocroc <- filter(protein_quant_minProb_pocroc, Protein %in% common_protein)
+protein_quant_svd_pocroc <- filter(protein_quant_svd_pocroc, Protein %in% common_protein)
+protein_quant_bpca_pocroc <- filter(protein_quant_bpca_pocroc, Protein %in% common_protein)
+protein_quant_knn_pocroc <- filter(protein_quant_knn_pocroc, Protein %in% common_protein)
+protein_quant_rf_pocroc <- filter(protein_quant_rf_pocroc, Protein %in% common_protein)
+protein_quant_lls_pocroc <- filter(protein_quant_lls_pocroc, Protein %in% common_protein)
+
+protein_quant_norm_noimp[is.na(protein_quant_norm_noimp)] <- 0
+
+protein_quant_norm_noimp <- rownames_to_column(protein_quant_norm_noimp, "Protein")
+
+avg_corr <- function(data){
+  cor_df <- as.data.frame(cor(data[,c(2:15)]))
+  fisher_df <- FisherZ(cor_df)
+  fisher_df[fisher_df == Inf] <- NA
+  sample_2273 <- mean(as.matrix(fisher_df[c(1:3), c(1:3)]), na.rm = T)
+  sample_2332 <- mean(as.matrix(fisher_df[c(4:5), c(4:5)]), na.rm = T)
+  sample_2562 <- mean(as.matrix(fisher_df[c(6:8), c(6:8)]), na.rm = T)
+  sample_3909 <- mean(as.matrix(fisher_df[c(9:10), c(9:10)]), na.rm = T)
+  sample_4448 <- mean(as.matrix(fisher_df[c(11:12), c(11:12)]), na.rm = T)
+  sample_4612 <- mean(as.matrix(fisher_df[c(13:14), c(13:14)]), na.rm = T)
+  mean_corr <- FisherZInv(cbind(sample_2273, sample_2332, sample_2562, sample_3909, 
+                                sample_4448, sample_4612))
+  mean_corr
+}
+
+noimp <- avg_corr(protein_quant_norm_noimp)
+minDet <- avg_corr(protein_quant_minDet_pocroc)
+minProb <- avg_corr(protein_quant_minProb_pocroc)
+knn <- avg_corr(protein_quant_knn_pocroc)
+svd <- avg_corr(protein_quant_svd_pocroc)
+bpca <- avg_corr(protein_quant_bpca_pocroc)
+rf <- avg_corr(protein_quant_rf_pocroc)
+lls <- avg_corr(protein_quant_lls_pocroc)
+
+
+
+mean_corr_7_imp <- as.data.frame(rbind(noimp, minDet, minProb, knn, svd, bpca, lls, rf))
+
+
+mean_corr_7_imp$imputation <- c("None", "minDet", "minProb", "KNNmethod", "SVDmethod", 
+                                "BPCA",  "LLS", "Random Forest")
+
+mean_corr_7_imp <- gather(mean_corr_7_imp, key = "sample_id", value = "Avg_corr", -imputation)
+
+imp_methods_col <- c('#e41a1c', '#4daf4a','#984ea3', '#a65628', 
+                     '#ff7f00','#ffff33','#f781bf','#999999')
+
+
+mean_corr_7_imp$sample_id[grep("sample_2273", mean_corr_7_imp$sample_id)] <- "1"
+mean_corr_7_imp$sample_id[grep("sample_2332", mean_corr_7_imp$sample_id)] <- "2"
+mean_corr_7_imp$sample_id[grep("sample_2562", mean_corr_7_imp$sample_id)] <- "3"
+mean_corr_7_imp$sample_id[grep("sample_3909", mean_corr_7_imp$sample_id)] <- "4"
+mean_corr_7_imp$sample_id[grep("sample_4448", mean_corr_7_imp$sample_id)] <- "5"
+mean_corr_7_imp$sample_id[grep("sample_4612", mean_corr_7_imp$sample_id)] <- "6"
+
+mean_corr_7_imp$imputation <- factor(mean_corr_7_imp$imputation, levels = unique(mean_corr_7_imp$imputation), ordered = TRUE)
+
+
+mean_corr_7_imp %>%
+  group_by(., imputation) %>%
+  ggplot(., aes(x = sample_id, y = Avg_corr, col = imputation)) +
+  geom_point(size = 8, alpha = 0.75, stroke = 2) +
+  theme_bw() +
+  theme(text = element_text(size = 35)) +
+  scale_color_manual(values = imp_methods_col) +
+  labs(x = "Patient number") +
+  ylab(expression(atop("Average correlation", 
+                       paste("within replicates"))))
+
+```
+
+
+
+# Figure 5.D
+```{r}
+co.var.df <- function(x) (100*apply(x,1,sd)/rowMeans(x))
+
+prot_noimp_pocroc_raw <- protein_quant_norm_noimp
+
+prot_noimp_pocroc_raw <- column_to_rownames(prot_noimp_pocroc_raw, "Protein")
+
+prot_noimp_pocroc_raw[prot_noimp_pocroc_raw == 0] <- NA
+
+prot_noimp_pocroc_raw <- 2^prot_noimp_pocroc_raw
+
+prot_noimp_pocroc_raw[is.na(prot_noimp_pocroc_raw)] <- 0
+
+prot_noimp_pocroc_raw$corr_2273 <- co.var.df(prot_noimp_pocroc_raw[,c(1:3)])
+prot_noimp_pocroc_raw$corr_2332 <- co.var.df(prot_noimp_pocroc_raw[,c(4:5)])
+prot_noimp_pocroc_raw$corr_3909 <- co.var.df(prot_noimp_pocroc_raw[,c(9:10)])
+prot_noimp_pocroc_raw$corr_2562 <- co.var.df(prot_noimp_pocroc_raw[,c(6:8)])
+prot_noimp_pocroc_raw$corr_4448 <- co.var.df(prot_noimp_pocroc_raw[,c(11:12)])
+prot_noimp_pocroc_raw$corr_4612 <- co.var.df(prot_noimp_pocroc_raw[,c(13:14)])
+
+
+coeff_pocroc_noimp <- prot_noimp_pocroc_raw[,c(15:20)]
+
+coeff_pocroc_noimp <- gather(coeff_pocroc_noimp, key = "load", value = "Coeff_var")
+
+coeff_pocroc_noimp$sample_id <- "1"
+
+coeff_pocroc_noimp$sample_id[grep("_2332", coeff_pocroc_noimp$load)] <- "2"
+coeff_pocroc_noimp$sample_id[grep("_3909", coeff_pocroc_noimp$load)] <- "3"
+coeff_pocroc_noimp$sample_id[grep("_2562", coeff_pocroc_noimp$load)] <- "4"
+coeff_pocroc_noimp$sample_id[grep("_4448", coeff_pocroc_noimp$load)] <- "5"
+coeff_pocroc_noimp$sample_id[grep("_4612", coeff_pocroc_noimp$load)] <- "6"
+
+
+
+
+coeff_pocroc_noimp$load <- factor(coeff_pocroc_noimp$load, levels = unique(coeff_pocroc_noimp$load), ordered = TRUE)
+
+
+
+ggplot(coeff_pocroc_noimp, aes(x = sample_id, y = Coeff_var, fill = sample_id)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c('#7fc97f','#beaed4','#fdc086','#ffff99','#386cb0','#f0027f')) +
+  theme_bw() +
+  theme(text = element_text(size = 35),
+        legend.position = "none") +
+  labs(x = "Patient number") +
+  ylab(expression(atop("Coefficient of variance", 
+                       paste("(No imputation)"))))
+```
+
+# Figure 5.E
+```{r}
+
+prot_rfimp_pocroc_raw <- protein_quant_rf_pocroc
+
+rownames(prot_rfimp_pocroc_raw) <- NULL
+prot_rfimp_pocroc_raw <- column_to_rownames(prot_rfimp_pocroc_raw, "Protein")
+
+prot_rfimp_pocroc_raw <- 2^prot_rfimp_pocroc_raw
+
+
+
+prot_rfimp_pocroc_raw$corr_2273 <- co.var.df(prot_rfimp_pocroc_raw[,c(1:3)])
+prot_rfimp_pocroc_raw$corr_2332 <- co.var.df(prot_rfimp_pocroc_raw[,c(4:5)])
+prot_rfimp_pocroc_raw$corr_3909 <- co.var.df(prot_rfimp_pocroc_raw[,c(9:10)])
+prot_rfimp_pocroc_raw$corr_2562 <- co.var.df(prot_rfimp_pocroc_raw[,c(6:8)])
+prot_rfimp_pocroc_raw$corr_4448 <- co.var.df(prot_rfimp_pocroc_raw[,c(11:12)])
+prot_rfimp_pocroc_raw$corr_4612 <- co.var.df(prot_rfimp_pocroc_raw[,c(13:14)])
+
+
+coeff_pocroc_rfimp <- prot_rfimp_pocroc_raw[,c(15:20)]
+
+coeff_pocroc_rfimp <- gather(coeff_pocroc_rfimp, key = "load", value = "Coeff_var")
+
+coeff_pocroc_rfimp$sample_id <- "1"
+
+coeff_pocroc_rfimp$sample_id[grep("_2332", coeff_pocroc_rfimp$load)] <- "2"
+coeff_pocroc_rfimp$sample_id[grep("_3909", coeff_pocroc_rfimp$load)] <- "3"
+coeff_pocroc_rfimp$sample_id[grep("_2562", coeff_pocroc_rfimp$load)] <- "4"
+coeff_pocroc_rfimp$sample_id[grep("_4448", coeff_pocroc_rfimp$load)] <- "5"
+coeff_pocroc_rfimp$sample_id[grep("_4612", coeff_pocroc_rfimp$load)] <- "6"
+
+
+coeff_pocroc_rfimp$load <- factor(coeff_pocroc_rfimp$load, levels = unique(coeff_pocroc_rfimp$load), ordered = TRUE)
+
+ggplot(coeff_pocroc_rfimp, aes(x = sample_id, y = Coeff_var, fill = sample_id)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c('#7fc97f','#beaed4','#fdc086','#ffff99','#386cb0','#f0027f')) +
+  theme_bw() +
+  theme(text = element_text(size = 35),
+        legend.position = "none") +
+  labs(x = "Patient number") +
+  ylab(expression(atop("Coefficient of variance", 
+                       paste("(Random Forest imputation)"))))
+
+
+
+
+
+```
+
