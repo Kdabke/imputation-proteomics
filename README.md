@@ -1,2 +1,5 @@
 # imputation-proteomics
 Missing values in proteomic data sets have real consequences on downstream data analysis and reproducibility. Although several imputation methods exist to handle missing values, no single imputation method is best suited for a diverse range of data sets, and no clear strategy exists for evaluating imputation methods for large-scale DIA-MS data sets, especially at different levels of protein quantification. To navigate through the different imputation strategies available in the literature, we have established a workflow to assess imputation methods on large-scale label-free DIA-MS data sets. We used three DIA-MS data sets with real missing values to evaluate eight imputation methods with multiple parameters at different levels of protein quantification; a dilution series data set, a small pilot data set, and a larger proteomic data set comparing paired tumor and stroma tissue.
+
+Code provided here is for generating main figures 1-6, supplimentary figures 1-4 and tables 1-3 for the manuscript: A Simple Optimization Workflow to Enable Precise and Accurate Imputation of Missing Values in Proteomic Datasets
+
