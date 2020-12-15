@@ -1,0 +1,9 @@
+protein_quant_og_fragment_ms_noimp.csv	no_imp	foldchnge_fragment_noimp.txt
+protein_quant_fragment_0.csv	zero_imp	foldchnge_fragment_0.txt
+protein_quant_fragment_knn.csv	knn_imp	foldchnge_fragment_knn.txt
+protein_quant_fragment_minDet.csv	minDet_imp	foldchnge_fragment_minDet.txt
+protein_quant_fragment_minProb.csv	minProb_imp	foldchnge_fragment_minProb.txt
+protein_quant_fragment_svd.csv	svd_imp	foldchnge_fragment_svd.txt
+protein_quant_fragment_bpca.csv	bpca_imp	foldchnge_fragment_bpca.txt
+protein_quant_fragment_lls.csv	lls_imp	foldchnge_fragment_lls.txt
+protein_quant_fragment_rf.csv	rf_imp	foldchnge_fragment_rf.txt
