@@ -1,0 +1,151 @@
+---
+title: "Suppl.Fig1"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# loading libraries
+```{r message=FALSE}
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(ggplot2)
+#library(imputeLCMD)
+#library(pcaMethods)
+#library(missForest)
+#library(ComplexHeatmap)
+set.seed(4242)
+#library(hydroGOF)
+library(ggcorrplot)
+library(corrplot)
+#library(circlize)
+library(RColorBrewer)
+library(viridis)
+library(readxl)
+```
+
+
+# Supplimentary Figure 1.A
+```{r message=FALSE}
+comb_imp_foldchnge <- read.csv("./Data/comb_imp_foldchnge.csv")
+
+comb_imp_foldchnge <- as.data.frame(comb_imp_foldchnge[,-1])
+
+colnames(comb_imp_foldchnge) <- c("Random Forest", "LLS", "KNNmethod",
+                                  "BPCA", "SVDmethod", "minProb", "minDet",
+                                  "Zero", "None", "Ideal")
+
+corr_foldchnge_imp <- cor(comb_imp_foldchnge)
+p.imp <- cor_pmat(comb_imp_foldchnge)
+
+corr_foldchnge_imp <- as.matrix(corr_foldchnge_imp)
+p.foldchnge_imp <- cor_pmat(comb_imp_foldchnge)
+col_cor_scale <- c('#f1eef6','#bdc9e1','#74a9cf','#0570b0')
+
+
+corrplot(corr_foldchnge_imp, type="upper", addrect = 3, 
+         rect.col = "red", tl.col="black", tl.srt=45,
+         col = col_cor_scale,
+         addCoef.col = "black",
+         p.mat = p.foldchnge_imp, sig.level = 0.0001,
+         cl.lim = c(-0.2, 1), is.corr = FALSE,
+         number.cex=2, tl.cex = 2)
+```
+
+# Supplimentary Figure 1.C
+```{r message=FALSE}
+library(colorspace)
+
+peptide <- read.csv("./Data/pept_gather.csv", stringsAsFactors = F)
+
+peptide <- as.data.frame(peptide[,-1], stringsAsFactors = F)
+colnames(peptide) <- c("load", "KNNmethod", "LLS", "Random Forest", "Ideal")
+
+cor_pept <- cor(peptide[,c(2:5)])
+
+p.pept <- cor_pmat(peptide[,c(2:5)])
+
+oryel <- sequential_hcl(9, "YlOrRd", rev = T)
+
+corrplot(cor_pept, type="upper", addrect = 3, rect.col = "red", tl.col="black", tl.srt=45,
+         addCoef.col = "white",
+         col = oryel,
+         p.mat = p.pept, sig.level = 0.001,
+         cl.lim = c(0.7, 1), is.corr = FALSE,
+         number.cex=1.65, tl.cex = 1.65)
+```
+
+# Supplimentary Figure 1.D
+```{r message=FALSE}
+protein <- read.csv("./Data/prot_gather.csv", stringsAsFactors = F)
+
+protein <- as.data.frame(protein[,-1], stringsAsFactors = F)
+colnames(protein) <- c("load", "KNNmethod", "LLS", "Random Forest", "Ideal")
+
+cor_prot <- cor(protein[,c(2:5)])
+
+p.prot <- cor_pmat(protein[,c(2:5)])
+
+oryel <- sequential_hcl(9, "YlOrRd", rev = T)
+
+corrplot(cor_prot, type="upper", addrect = 3, rect.col = "red", tl.col="black", tl.srt=45,
+         addCoef.col = "white",
+         col = oryel,
+         p.mat = p.prot, sig.level = 0.001,
+         cl.lim = c(0.7, 1), is.corr = FALSE,
+         number.cex=1.65, tl.cex = 1.65)
+```
+
+# Supplimentary Figure 1.E
+```{r message=FALSE}
+
+rsr_pept <- read.csv("./Data/rsr_pept_imp.csv")
+
+
+label_pept <- rsr_pept$rsr
+label_pept <- round(label_pept, digits = 2)
+
+colnames(rsr_pept) <- c("X", "rsr", "Imputation")
+
+rsr_pept$Imputation <- c("Ideal", "KNNmethod", "LLS", "Random Forest")
+
+ggplot(rsr_pept, aes(x = Imputation, y = rsr, fill = Imputation)) +
+  geom_col(color = "black") +
+  scale_fill_manual(values = c("black", '#a65628','#f781bf','#999999')) +
+  theme_bw() +
+  labs(x = "Imputation Methods", y = "RMSE/SD") +
+  geom_text(aes(label=label_pept), position=position_dodge(width=0.9), vjust=-0.25,
+            size = 14) +
+  theme(text = element_text(size = 40),
+        axis.text.x = element_blank()) 
+
+```
+
+# Supplimentary Figure 1.F
+```{r message=FALSE}
+rsr_prot <- read.csv("./Data/rsr_prot_imp.csv")
+
+
+label_prot <- rsr_prot$rsr
+label_prot <- round(label_prot, digits = 2)
+
+colnames(rsr_prot) <- c("X", "rsr", "Imputation")
+
+rsr_prot$Imputation <- c("Ideal", "KNNmethod", "LLS", "Random Forest")
+
+ggplot(rsr_prot, aes(x = Imputation, y = rsr, fill = Imputation)) +
+  geom_col(color = "black") +
+  scale_fill_manual(values = c("black", '#a65628','#f781bf','#999999')) +
+  theme_bw() +
+  labs(x = "Imputation Methods", y = "RMSE/SD") +
+  geom_text(aes(label=label_prot), position=position_dodge(width=0.9), vjust=-0.25,
+            size = 14) +
+  theme(text = element_text(size = 40),
+        axis.text.x = element_blank())
+```
+
+

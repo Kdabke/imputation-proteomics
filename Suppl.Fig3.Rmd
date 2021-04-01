@@ -1,0 +1,118 @@
+---
+title: "Suppl.Fig3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# libraries
+```{r message=FALSE}
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(ggplot2)
+library(ComplexHeatmap)
+library(colorspace)
+```
+
+# supplimentary figure 3A-I
+```{r message=FALSE}
+
+protein_quant_minDet_pocroc <- read.csv("./Data/prot_quant_msstats_SDF2_pilot_MINDET_prefilt_32021.csv")
+
+protein_quant_knn_pocroc <- read.csv("./Data/prot_quant_msstats_SDF2_pilot_KNN_prefilt_32021.csv")
+
+protein_quant_minProb_pocroc <- read.csv("./Data/prot_quant_msstats_SDF2_pilot_MINPROB_prefilt_32021.csv")
+
+protein_quant_svd_pocroc <- read.csv("./Data/prot_quant_msstats_SDF2_pilot_SVD_prefilt_32021.csv")
+
+protein_quant_bpca_pocroc <- read.csv("./Data/prot_quant_msstats_SDF2_pilot_BPCA_prefilt_32021.csv")
+
+protein_quant_norm_noimp <- read.csv("./Data/prot_quant_msstats_mapdia_filt_SDF2_pilot_NOIMP_31621.csv")
+
+protein_quant_zero_noimp <- read.csv("./Data/prot_quant_msstats_SDF2_pilot_ZERO_prefilt_32021.csv")
+
+protein_quant_lls_pocroc <- read.csv("./Data/prot_quant_msstats_SDF2_pilot_LLS_prefilt_32021.csv")
+
+protein_quant_rf_pocroc <- read.csv("./Data/prot_quant_msstats_SDF2_pilot_RF_prefilt_32021.csv")
+
+protein_quant_norm_noimp <- subset(protein_quant_norm_noimp, select = -c(pool__4,
+                                                                         pool__5,
+                                                                         pool__6))
+
+data_correct_format <- function(data){
+  df <- as.data.frame(data[-1,-1])
+  rownames(df) <- NULL
+  df <- column_to_rownames(df, "Protein")
+}
+
+protein_quant_norm_noimp <- data_correct_format(protein_quant_norm_noimp)
+protein_quant_zero_noimp <- data_correct_format(protein_quant_zero_noimp)
+protein_quant_minDet_pocroc <- data_correct_format(protein_quant_minDet_pocroc)
+protein_quant_minProb_pocroc <- data_correct_format(protein_quant_minProb_pocroc)
+protein_quant_knn_pocroc <- data_correct_format(protein_quant_knn_pocroc)
+protein_quant_svd_pocroc <- data_correct_format(protein_quant_svd_pocroc)
+protein_quant_bpca_pocroc <- data_correct_format(protein_quant_bpca_pocroc)
+protein_quant_lls_pocroc <- data_correct_format(protein_quant_lls_pocroc)
+protein_quant_rf_pocroc <- data_correct_format(protein_quant_rf_pocroc)
+
+protein_quant_norm_noimp[is.na(protein_quant_norm_noimp)] <- 0
+protein_quant_zero_noimp[is.na(protein_quant_zero_noimp)] <- 0
+protein_quant_lls_pocroc <- na.omit(protein_quant_lls_pocroc)
+
+
+data_correlation <- function(data){
+  cor_data <- as.data.frame(cor(data[,c(1:14)]))
+  if(all(colnames(protein_quant_norm_noimp) == colnames(cor_data))){
+    colnames(cor_data) <- c("1_1", "1_2", "1_3", "2_1", "2_2",
+                        "3_1", "3_2", "4_1", "4_2", "4_3",
+                        "5_1", "5_2", "6_1", "6_2")
+    rownames(cor_data) <- colnames(cor_data)
+    
+  }else{
+    print("Column names do not match")
+  }
+  cor_data
+}
+
+
+
+corr_noimp <- data_correlation(protein_quant_norm_noimp)
+corr_zero <- data_correlation(protein_quant_zero_noimp)
+corr_mindet <- data_correlation(protein_quant_minDet_pocroc)
+corr_minprob <- data_correlation(protein_quant_minProb_pocroc)
+corr_knn <- data_correlation(protein_quant_knn_pocroc)
+corr_svd <- data_correlation(protein_quant_svd_pocroc)
+corr_bpca <- data_correlation(protein_quant_bpca_pocroc)
+corr_lls <- data_correlation(protein_quant_lls_pocroc)
+corr_rf <- data_correlation(protein_quant_rf_pocroc)
+
+s9 <- sequential_hcl(9, "Reds", rev = T)
+
+hmap <- Heatmap(
+  corr_rf,
+  name = "Pearson's Correlation Coefficient",
+  show_row_names = T,
+  show_column_names = T,
+  cluster_rows = T,
+  cluster_columns = T,
+  show_column_dend = FALSE,
+  show_row_dend = FALSE,
+  row_dend_reorder = TRUE,
+  column_dend_reorder = TRUE,
+  clustering_method_rows = "ward.D2",
+  clustering_method_columns = "ward.D2",
+  width = unit(100, "mm"),
+  col = s9,
+  column_names_gp = gpar(fontsize = 25),
+  row_names_gp = gpar(fontsize = 25),
+  heatmap_legend_param = list(
+    title = "Pearson's correlation coefficient",
+    title_position = "leftcenter-rot"))
+
+draw(hmap, heatmap_legend_side="left")
+```
+

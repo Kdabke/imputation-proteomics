@@ -1,0 +1,643 @@
+---
+title: "Suppl.Fig4-5"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# libraries
+```{r message=FALSE}
+
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(ggplot2)
+library(tibble)
+library(ComplexHeatmap)
+# colors
+kelly.colours <- c("gray95", "gray13", "gold2", "plum4", "darkorange1", "lightskyblue2", "firebrick", "burlywood3", "gray51", "springgreen4", "lightpink2", "deepskyblue4", "lightsalmon2", 
+                   "mediumpurple4", "orange", "maroon", "yellow3", "brown4", "yellow4", "sienna4", "chocolate", "gray19")
+library(colorspace)
+s9 <- sequential_hcl(9, "Reds", rev = T)
+
+```
+
+# Suppl.Fig4A-B Suppl.Fig5A-B
+```{r message=FALSE}
+actbl <- read.csv("./Suppl_Data/actbl_fragment_intensity.csv", stringsAsFactors = F)
+gapdh <- read.csv("./Suppl_Data/gapdh_fragment_intensity.csv", stringsAsFactors = F)
+muc16 <- read.csv("./Suppl_Data/muc16_fragment_intensity.csv", stringsAsFactors = F)
+pax8 <-  read.csv("./Suppl_Data/pax8_fragment_intensity.csv", stringsAsFactors = F)
+
+coldata_final <- read.csv("./Suppl_Data/coldata_final_103.csv", stringsAsFactors = F)
+
+
+coldata_final <- as.data.frame(coldata_final, stringsAsFactors = F)
+
+rownames(coldata_final) <- NULL
+
+coldata_final <- column_to_rownames(coldata_final, "X")
+coldata_final$TumorType[grep("Prim", coldata_final$TumorType)] <- "Primary"
+coldata_final$TumorType[grep("PRIMAR", coldata_final$TumorType)] <- "Primary"
+
+coldata_final$TumorType[grep("Recurr", coldata_final$TumorType)] <- "Recurrent"
+coldata_final$TumorType[grep("RECURR", coldata_final$TumorType)] <- "Recurrent"
+
+coldata_final$TumorType[grep("strm", coldata_final$phase)] <- "Stromal"
+coldata_final$TumorType[grep("all", coldata_final$TumorType)] <- "pool"
+
+samples_primary_paired_tum_strm <- read.table("./Suppl_Data/samples_primary_paired_tum_strm.txt",
+                                              stringsAsFactors = F)
+
+coldata_final_primary <- filter(coldata_final, rownames(coldata_final) %in% samples_primary_paired_tum_strm$V1)
+
+coldata_final_primary <- rownames_to_column(coldata_final_primary, "sample")
+coldata_final_primary$sample <- paste(coldata_final_primary$sample, "1", sep = "_")
+
+coldata_final_primary <- column_to_rownames(coldata_final_primary, "sample")
+
+all(colnames(pax8[,4:44]) == rownames(coldata_final_primary))
+pax8 <- column_to_rownames(pax8, "X")
+
+test <- pax8
+
+test[is.na(test)] <- 0
+
+test <- test[apply(test == 0, 1, sum) >= 43, ]
+
+pax8 <- filter(pax8, !rownames(pax8) %in% rownames(test))
+
+peptide_pax8 <- subset(pax8, select = PeptideSequence)
+pax8 <- subset(pax8, select = -c(PeptideSequence, ProteinName))
+
+
+
+all(rownames(peptide_pax8) == rownames(pax8))
+
+missing_percent <- as.data.frame(colSums(is.na(pax8)))
+colnames(missing_percent) <- "Missing values count"
+missing_percent$stroma <- "tumor"
+missing_percent$stroma[grep("strm", rownames(missing_percent))] <- "stroma"
+stroma_content <- subset(missing_percent, select = stroma)
+missing_percent <- subset(missing_percent, select = -stroma)
+
+colnames(stroma_content) <- "Tumor/stroma"
+
+condition_colors <- list(PeptideSequence = kelly.colours[2:5])
+condition_colors2 <- list(`Tumor/stroma` = kelly.colours[5:6])
+names(condition_colors$PeptideSequence) <- unique(peptide_pax8$PeptideSequence)
+names(condition_colors2$`Tumor/stroma`) <- unique(stroma_content$`Tumor/stroma`)
+
+
+colAnn1 <- HeatmapAnnotation("Missing values count" = anno_barplot(missing_percent$`Missing values count`),
+                             annotation_name_gp= gpar(fontsize = 15))
+
+
+colAnn2 <- HeatmapAnnotation(df=stroma_content, which="column",
+                             col = condition_colors2, annotation_name_gp= gpar(fontsize = 15),
+                             annotation_legend_param = list(
+                               `Tumor/stroma` = list(
+                                 title_position = "lefttop-rot"
+                               )
+                             ))
+
+colAnn3 <- HeatmapAnnotation(df=peptide_pax8, which="row",
+                             col = condition_colors, show_annotation_name = FALSE,
+                             annotation_legend_param = list(
+                               `PeptideSequence` = list(
+                                 title_position = "lefttop-rot"
+                               )
+                             ))
+
+
+
+
+hmap <- Heatmap(
+  pax8,
+  name = "Fragment intensities",
+  show_row_names = F,
+  show_column_names = F,
+  cluster_rows = F,
+  cluster_columns = F,
+  show_column_dend = TRUE,
+  show_row_dend = F,
+  row_dend_reorder = F,
+  column_dend_reorder = F,
+  clustering_method_rows = "ward.D2",
+  clustering_method_columns = "ward.D2",
+  width = unit(100, "mm"), na_col = "grey",
+  right_annotation = colAnn3, top_annotation = c(colAnn1, colAnn2),
+  col = s9, column_title = "PAX8",
+  heatmap_legend_param = list(
+    title = "Fragment intensities",
+    title_position = "lefttop-rot"))
+
+draw(hmap, heatmap_legend_side="right", annotation_legend_side="right")
+
+
+all(colnames(muc16[,4:44]) == rownames(coldata_final_primary))
+muc16 <- column_to_rownames(muc16, "X")
+
+# removing fragments not present in any samples (N = 25 fragments of 155 not quantified in all 41 samples)
+test <- muc16
+
+test[is.na(test)] <- 0
+
+test <- test[apply(test == 0, 1, sum) >= 41, ]
+
+muc16 <- filter(muc16, !rownames(muc16) %in% rownames(test))
+
+
+peptide_muc16 <- subset(muc16, select = PeptideSequence)
+muc16 <- subset(muc16, select = -c(PeptideSequence, ProteinName))
+
+all(rownames(peptide_muc16) == rownames(muc16))
+
+missing_percent <- as.data.frame(colSums(is.na(muc16)))
+colnames(missing_percent) <- "Missing values count"
+#missing_percent$stroma <- "tumor"
+#missing_percent$stroma[grep("strm", rownames(missing_percent))] <- "stroma"
+#stroma_content <- subset(missing_percent, select = stroma)
+#missing_percent <- subset(missing_percent, select = -stroma)
+
+condition_colors <- list(PeptideSequence = kelly.colours[2:5])
+names(condition_colors$PeptideSequence) <- unique(peptide_pax8$PeptideSequence)
+
+colAnn1 <- HeatmapAnnotation("Missing values count" = anno_barplot(missing_percent$`Missing values count`),
+                             annotation_name_gp= gpar(fontsize = 20))
+
+colAnn2 <- HeatmapAnnotation(df=stroma_content, which="column",
+                             col = condition_colors2, annotation_name_gp= gpar(fontsize = 20),
+                             annotation_legend_param = list(
+                               `Tumor/stroma` = list(
+                                 title_position = "lefttop-rot"
+                               )
+                             ))
+
+colAnn3 <- HeatmapAnnotation(df=peptide_muc16, which="row",
+                             show_annotation_name = FALSE,
+                             annotation_legend_param = list(
+                               `PeptideSequence` = list(
+                                 title_position = "lefttop-rot"
+                               )
+                             ))
+
+hmap <- Heatmap(
+  muc16,
+  name = "Fragment intensities",
+  show_row_names = F,
+  show_column_names = F,
+  cluster_rows = F,
+  cluster_columns = F,
+  show_column_dend = TRUE,
+  show_row_dend = F,
+  row_dend_reorder = F,
+  column_dend_reorder = F,
+  clustering_method_rows = "ward.D2",
+  clustering_method_columns = "ward.D2",
+  width = unit(100, "mm"), na_col = "grey",
+  right_annotation = colAnn3, top_annotation = c(colAnn1, colAnn2),
+  col = s9, column_title = "MUC16",
+  heatmap_legend_param = list(
+    title = "Fragment intensities",
+    title_position = "lefttop-rot"))
+
+draw(hmap, heatmap_legend_side="bottom", annotation_legend_side="bottom")
+
+
+all(colnames(gapdh[,4:44]) == rownames(coldata_final_primary))
+gapdh <- column_to_rownames(gapdh, "X")
+
+# removing fragments not present in any samples (N = 8 fragments of 198 not quantified in all 41 samples)
+test <- gapdh
+
+test[is.na(test)] <- 0
+
+test <- test[apply(test == 0, 1, sum) >= 41, ]
+
+gapdh <- filter(gapdh, !rownames(gapdh) %in% rownames(test))
+
+peptide_gapdh <- subset(gapdh, select = PeptideSequence)
+gapdh <- subset(gapdh, select = -c(PeptideSequence, ProteinName))
+
+all(rownames(peptide_gapdh) == rownames(gapdh))
+
+missing_percent <- as.data.frame(colSums(is.na(gapdh)))
+colnames(missing_percent) <- "Missing values count"
+
+
+colAnn1 <- HeatmapAnnotation("Missing values count" = anno_barplot(missing_percent$`Missing values count`),
+                             annotation_name_gp= gpar(fontsize = 20))
+
+colAnn2 <- HeatmapAnnotation(df=stroma_content, which="column",
+                             col = condition_colors2, annotation_name_gp= gpar(fontsize = 20),
+                             annotation_legend_param = list(
+                               `Tumor/stroma` = list(
+                                 title_position = "lefttop-rot"
+                               )
+                             ))
+
+colAnn3 <- HeatmapAnnotation(df=peptide_gapdh, which="row",
+                             show_annotation_name = FALSE,
+                             annotation_legend_param = list(
+                               `PeptideSequence` = list(
+                                 title_position = "lefttop-rot"
+                               )
+                             ))
+
+
+hmap <- Heatmap(
+  log2(gapdh),
+  name = "Fragment intensities",
+  show_row_names = F,
+  show_column_names = F,
+  cluster_rows = F,
+  cluster_columns = F,
+  show_column_dend = TRUE,
+  show_row_dend = F,
+  row_dend_reorder = F,
+  column_dend_reorder = F,
+  clustering_method_rows = "ward.D2",
+  clustering_method_columns = "ward.D2",
+  width = unit(100, "mm"), na_col = "grey",
+  right_annotation = colAnn3, top_annotation = c(colAnn1, colAnn2),
+  col = s9, column_title = "GAPDH",
+  heatmap_legend_param = list(
+    title = "log2(Fragment intensities)",
+    title_position = "lefttop-rot"))
+
+draw(hmap, heatmap_legend_side="bottom", annotation_legend_side="bottom")
+
+all(colnames(actbl[,4:44]) == rownames(coldata_final_primary))
+actbl <- column_to_rownames(actbl, "X")
+
+# removing fragments not present in any samples (none for actbl)
+test <- actbl
+
+test[is.na(test)] <- 0
+
+test <- test[apply(test == 0, 1, sum) >= 41, ]
+
+actbl <- filter(actbl, !rownames(actbl) %in% rownames(test))
+
+
+peptide_actbl <- subset(actbl, select = PeptideSequence)
+actbl <- subset(actbl, select = -c(PeptideSequence, ProteinName))
+
+all(rownames(peptide_actbl) == rownames(actbl))
+
+missing_percent <- as.data.frame(colSums(is.na(actbl)))
+colnames(missing_percent) <- "Missing values count"
+
+condition_colors <- list(PeptideSequence = kelly.colours[2:4])
+names(condition_colors$PeptideSequence) <- unique(peptide_actbl$PeptideSequence)
+
+
+colAnn1 <- HeatmapAnnotation("Missing values count" = anno_barplot(missing_percent$`Missing values count`),
+                             annotation_name_gp= gpar(fontsize = 20))
+
+colAnn2 <- HeatmapAnnotation(df=stroma_content, which="column",
+                             col = condition_colors2, annotation_name_gp= gpar(fontsize = 20),
+                             annotation_legend_param = list(
+                               `Tumor/stroma` = list(
+                                 title_position = "lefttop-rot"
+                               )
+                             ))
+
+colAnn3 <- HeatmapAnnotation(df=peptide_actbl, which="row",
+                             show_annotation_name = FALSE,
+                             col = condition_colors,
+                             annotation_legend_param = list(
+                               `PeptideSequence` = list(
+                                 title_position = "lefttop-rot"
+                               )
+                             ))
+
+
+
+hmap <- Heatmap(
+  log2(actbl),
+  name = "Fragment intensities",
+  show_row_names = F,
+  show_column_names = F,
+  cluster_rows = F,
+  cluster_columns = F,
+  show_column_dend = TRUE,
+  show_row_dend = F,
+  row_dend_reorder = F,
+  column_dend_reorder = F,
+  clustering_method_rows = "ward.D2",
+  clustering_method_columns = "ward.D2",
+  width = unit(100, "mm"), na_col = "grey",
+  right_annotation = colAnn3, top_annotation = c(colAnn1, colAnn2),
+  col = s9, column_title = "beta-Actin",
+  heatmap_legend_param = list(
+    title = "log2(Fragment intensities)",
+    title_position = "lefttop-rot"))
+
+draw(hmap, heatmap_legend_side="bottom", annotation_legend_side="bottom")
+```
+
+# Suppl.Fig4C-D Suppl.Fig5C-D
+```{r message=FALSE}
+actbl <- read.csv("./Suppl_data/actbl_fragment_SDF1_NOIMP_31521.csv", stringsAsFactors = F)
+gapdh <- read.csv("./Suppl_data/gapdh_fragment_SDF1_NOIMP_31521.csv", stringsAsFactors = F)
+muc16 <- read.csv("./Suppl_data/muc16_fragment_SDF1_NOIMP_31521.csv", stringsAsFactors = F)
+pax8 <-  read.csv("./Suppl_data/pax8_fragment_SDF1_NOIMP_31521.csv", stringsAsFactors = F)
+
+coldata_final <- read.csv("./Suppl_data/coldata_final_103.csv", stringsAsFactors = F)
+
+
+coldata_final <- as.data.frame(coldata_final, stringsAsFactors = F)
+
+rownames(coldata_final) <- NULL
+
+coldata_final <- column_to_rownames(coldata_final, "X")
+coldata_final$TumorType[grep("Prim", coldata_final$TumorType)] <- "Primary"
+coldata_final$TumorType[grep("PRIMAR", coldata_final$TumorType)] <- "Primary"
+
+coldata_final$TumorType[grep("Recurr", coldata_final$TumorType)] <- "Recurrent"
+coldata_final$TumorType[grep("RECURR", coldata_final$TumorType)] <- "Recurrent"
+
+coldata_final$TumorType[grep("strm", coldata_final$phase)] <- "Stromal"
+coldata_final$TumorType[grep("all", coldata_final$TumorType)] <- "pool"
+
+coldata_final <- as.data.frame(coldata_final[-c(grep("pool", rownames(coldata_final))),])
+
+coldata_final_primary <- filter(coldata_final, rownames(coldata_final) %in% samples_primary_paired_tum_strm$V1)
+
+coldata_final_primary <- rownames_to_column(coldata_final_primary, "sample")
+coldata_final_primary$sample <- paste(coldata_final_primary$sample, "1", sep = "_")
+
+# getting the coldata rownames the same order as protein data frame
+coldata_final_primary$tumor_stroma <- "Tumor"
+
+coldata_final_primary$tumor_stroma[grep("str", coldata_final_primary$phase)] <- "Stroma"
+
+coldata_final_primary$column_match <- paste(coldata_final_primary$tumor_stroma, coldata_final_primary$sample_id, sep = "_")
+coldata_final_primary <- column_to_rownames(coldata_final_primary, "column_match")
+
+all(colnames(actbl[,5:45]) == coldata_final_primary$sample)
+actbl <- subset(actbl, select = -X)
+colnames(actbl) <- c(colnames(actbl)[1:3], rownames(coldata_final_primary))
+
+all(colnames(gapdh[,5:45]) == coldata_final_primary$sample)
+gapdh <- subset(gapdh, select = -X)
+colnames(gapdh) <- c(colnames(gapdh)[1:3], rownames(coldata_final_primary))
+
+all(colnames(pax8[,5:45]) == coldata_final_primary$sample)
+pax8 <- subset(pax8, select = -X)
+colnames(pax8) <- c(colnames(pax8)[1:3], rownames(coldata_final_primary))
+
+all(colnames(muc16[,5:45]) == coldata_final_primary$sample)
+muc16 <- subset(muc16, select = -X)
+colnames(muc16) <- c(colnames(muc16)[1:3], rownames(coldata_final_primary))
+
+pax8 <- column_to_rownames(pax8, "FragmentIon")
+
+peptide_pax8 <- subset(pax8, select = PeptideSequence)
+pax8 <- subset(pax8, select = -c(PeptideSequence, ProteinName))
+
+
+
+all(rownames(peptide_pax8) == rownames(pax8))
+
+missing_percent <- as.data.frame(colSums(is.na(pax8)))
+colnames(missing_percent) <- "Missing values count"
+missing_percent$stroma <- "tumor"
+missing_percent$stroma[grep("Stroma", rownames(missing_percent))] <- "stroma"
+stroma_content <- subset(missing_percent, select = stroma)
+missing_percent <- subset(missing_percent, select = -stroma)
+
+colnames(stroma_content) <- "Tumor/stroma"
+
+condition_colors <- list(PeptideSequence = kelly.colours[2:4])
+condition_colors2 <- list(`Tumor/stroma` = kelly.colours[5:6])
+names(condition_colors$PeptideSequence) <- unique(peptide_pax8$PeptideSequence)
+names(condition_colors2$`Tumor/stroma`) <- unique(stroma_content$`Tumor/stroma`)
+
+
+colAnn1 <- HeatmapAnnotation("Missing values count" = anno_barplot(missing_percent$`Missing values count`),
+                             annotation_name_gp= gpar(fontsize = 15))
+
+
+colAnn2 <- HeatmapAnnotation(df=stroma_content, which="column",
+                             col = condition_colors2, annotation_name_gp= gpar(fontsize = 15),
+                             annotation_legend_param = list(
+                               `Tumor/stroma` = list(
+                                 title_position = "lefttop-rot"
+                               )
+                             ))
+
+colAnn3 <- HeatmapAnnotation(df=peptide_pax8, which="row",
+                             col = condition_colors, show_annotation_name = FALSE,
+                             annotation_legend_param = list(
+                               `PeptideSequence` = list(
+                                 title_position = "lefttop-rot"
+                               )
+                             ))
+
+
+
+
+hmap <- Heatmap(
+  pax8,
+  name = "Fragment intensities",
+  show_row_names = F,
+  show_column_names = F,
+  cluster_rows = F,
+  cluster_columns = F,
+  show_column_dend = TRUE,
+  show_row_dend = F,
+  row_dend_reorder = F,
+  column_dend_reorder = F,
+  clustering_method_rows = "ward.D2",
+  clustering_method_columns = "ward.D2",
+  width = unit(100, "mm"), na_col = "grey",
+  right_annotation = colAnn3, top_annotation = c(colAnn1, colAnn2),
+  col = s9, column_title = "PAX8",
+  heatmap_legend_param = list(
+    title = "Fragment intensities",
+    title_position = "lefttop-rot"))
+
+draw(hmap, heatmap_legend_side="right", annotation_legend_side="right")
+
+# muc16
+all(colnames(muc16[,4:44]) == rownames(coldata_final_primary))
+muc16 <- column_to_rownames(muc16, "FragmentIon")
+
+peptide_muc16 <- subset(muc16, select = PeptideSequence)
+muc16 <- subset(muc16, select = -c(PeptideSequence, ProteinName))
+
+all(rownames(peptide_muc16) == rownames(muc16))
+
+missing_percent <- as.data.frame(colSums(is.na(muc16)))
+colnames(missing_percent) <- "Missing values count"
+
+condition_colors <- list(PeptideSequence = kelly.colours[2:15])
+names(condition_colors$PeptideSequence) <- unique(peptide_muc16$PeptideSequence)
+
+colAnn1 <- HeatmapAnnotation("Missing values count" = anno_barplot(missing_percent$`Missing values count`),
+                             annotation_name_gp= gpar(fontsize = 20))
+
+colAnn2 <- HeatmapAnnotation(df=stroma_content, which="column",
+                             col = condition_colors2, annotation_name_gp= gpar(fontsize = 20),
+                             annotation_legend_param = list(
+                               `Tumor/stroma` = list(
+                                 title_position = "lefttop-rot"
+                               )
+                             ))
+
+colAnn3 <- HeatmapAnnotation(df=peptide_muc16, which="row",
+                             show_annotation_name = FALSE,
+                             annotation_legend_param = list(
+                               `PeptideSequence` = list(
+                                 title_position = "lefttop-rot"
+                               )
+                             ))
+
+hmap <- Heatmap(
+  muc16,
+  name = "Fragment intensities",
+  show_row_names = F,
+  show_column_names = F,
+  cluster_rows = F,
+  cluster_columns = F,
+  show_column_dend = TRUE,
+  show_row_dend = F,
+  row_dend_reorder = F,
+  column_dend_reorder = F,
+  clustering_method_rows = "ward.D2",
+  clustering_method_columns = "ward.D2",
+  width = unit(100, "mm"), na_col = "grey",
+  right_annotation = colAnn3, top_annotation = c(colAnn1, colAnn2),
+  col = s9, column_title = "MUC16",
+  heatmap_legend_param = list(
+    title = "Fragment intensities",
+    title_position = "lefttop-rot"))
+
+draw(hmap, heatmap_legend_side="bottom", annotation_legend_side="bottom")
+
+# gapdh
+all(colnames(gapdh[,4:44]) == rownames(coldata_final_primary))
+gapdh <- column_to_rownames(gapdh, "FragmentIon")
+
+peptide_gapdh <- subset(gapdh, select = PeptideSequence)
+gapdh <- subset(gapdh, select = -c(PeptideSequence, ProteinName))
+
+all(rownames(peptide_gapdh) == rownames(gapdh))
+
+missing_percent <- as.data.frame(colSums(is.na(gapdh)))
+colnames(missing_percent) <- "Missing values count"
+
+condition_colors <- list(PeptideSequence = kelly.colours[2:10])
+names(condition_colors$PeptideSequence) <- unique(peptide_gapdh$PeptideSequence)
+
+colAnn1 <- HeatmapAnnotation("Missing values count" = anno_barplot(missing_percent$`Missing values count`),
+                             annotation_name_gp= gpar(fontsize = 20))
+
+colAnn2 <- HeatmapAnnotation(df=stroma_content, which="column",
+                             col = condition_colors2, annotation_name_gp= gpar(fontsize = 20),
+                             annotation_legend_param = list(
+                               `Tumor/stroma` = list(
+                                 title_position = "lefttop-rot"
+                               )
+                             ))
+
+colAnn3 <- HeatmapAnnotation(df=peptide_gapdh, which="row",
+                             col = condition_colors,
+                             show_annotation_name = FALSE,
+                             annotation_legend_param = list(
+                               `PeptideSequence` = list(
+                                 title_position = "lefttop-rot"
+                               )
+                             ))
+
+
+hmap <- Heatmap(
+  log2(gapdh),
+  name = "Fragment intensities",
+  show_row_names = F,
+  show_column_names = F,
+  cluster_rows = F,
+  cluster_columns = F,
+  show_column_dend = TRUE,
+  show_row_dend = F,
+  row_dend_reorder = F,
+  column_dend_reorder = F,
+  clustering_method_rows = "ward.D2",
+  clustering_method_columns = "ward.D2",
+  width = unit(100, "mm"), na_col = "grey",
+  right_annotation = colAnn3, top_annotation = c(colAnn1, colAnn2),
+  col = s9, column_title = "GAPDH",
+  heatmap_legend_param = list(
+    title = "log2(Fragment intensities)",
+    title_position = "lefttop-rot"))
+
+draw(hmap, heatmap_legend_side="bottom", annotation_legend_side="bottom")
+
+all(colnames(actbl[,4:44]) == rownames(coldata_final_primary))
+actbl <- column_to_rownames(actbl, "FragmentIon")
+
+
+peptide_actbl <- subset(actbl, select = PeptideSequence)
+actbl <- subset(actbl, select = -c(PeptideSequence, ProteinName))
+
+all(rownames(peptide_actbl) == rownames(actbl))
+
+missing_percent <- as.data.frame(colSums(is.na(actbl)))
+colnames(missing_percent) <- "Missing values count"
+
+condition_colors <- list(PeptideSequence = kelly.colours[2:3])
+names(condition_colors$PeptideSequence) <- unique(peptide_actbl$PeptideSequence)
+
+
+colAnn1 <- HeatmapAnnotation("Missing values count" = anno_barplot(missing_percent$`Missing values count`),
+                             annotation_name_gp= gpar(fontsize = 20))
+
+colAnn2 <- HeatmapAnnotation(df=stroma_content, which="column",
+                             col = condition_colors2, annotation_name_gp= gpar(fontsize = 20),
+                             annotation_legend_param = list(
+                               `Tumor/stroma` = list(
+                                 title_position = "lefttop-rot"
+                               )
+                             ))
+
+colAnn3 <- HeatmapAnnotation(df=peptide_actbl, which="row",
+                             show_annotation_name = FALSE,
+                             col = condition_colors,
+                             annotation_legend_param = list(
+                               `PeptideSequence` = list(
+                                 title_position = "lefttop-rot"
+                               )
+                             ))
+
+
+
+hmap <- Heatmap(
+  log2(actbl),
+  name = "Fragment intensities",
+  show_row_names = F,
+  show_column_names = F,
+  cluster_rows = F,
+  cluster_columns = F,
+  show_column_dend = TRUE,
+  show_row_dend = F,
+  row_dend_reorder = F,
+  column_dend_reorder = F,
+  clustering_method_rows = "ward.D2",
+  clustering_method_columns = "ward.D2",
+  width = unit(100, "mm"), na_col = "grey",
+  right_annotation = colAnn3, top_annotation = c(colAnn1, colAnn2),
+  col = s9, column_title = "beta-Actin",
+  heatmap_legend_param = list(
+    title = "log2(Fragment intensities)",
+    title_position = "lefttop-rot"))
+
+draw(hmap, heatmap_legend_side="bottom", annotation_legend_side="bottom")
+
+```
+

@@ -1,0 +1,220 @@
+---
+title: "Suppl.Fig8"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# libraries
+```{r message=FALSE}
+library(tibble)
+library(dplyr)
+library(tidyr)
+library(corrplot)
+library(ggcorrplot)
+```
+
+# Suppl.Fig8A
+```{r message=FALSE}
+prot_noimp <- read.csv("./Data/protein_quant_og_fragment_ms_noimp.csv")
+
+prot_noimp <- as.data.frame(prot_noimp[-1,])
+prot_noimp <- as.data.frame(prot_noimp[,-1])
+
+# 2918 proteins with no imputation from the dilution experiment
+rownames(prot_noimp) <- NULL
+
+prot_noimp <- column_to_rownames(prot_noimp, "Protein")
+prot_noimp[is.na(prot_noimp)] <- 0
+
+cor_prot_noimp_data <- prot_noimp
+
+cor_prot_noimp_data[is.na(cor_prot_noimp_data)] <- 0
+cor_prot_noimp <- cor(cor_prot_noimp_data)
+p.prot <- cor_pmat(cor_prot_noimp_data)
+
+
+colfunc<-colorRampPalette(c("white", "yellow", "red"))
+
+#devtools::install_github("taiyun/corrplot")
+
+corrplot(cor_prot_noimp, type="upper", addrect = 3, rect.col = "red", tl.col="black", tl.srt=45,
+         addCoef.col = "black",
+         col = colfunc(150),
+         p.mat = p.prot, sig.level = 0.001,
+         cl.lim = c(0, 1), is.corr = FALSE,
+         number.cex=1.65, tl.cex = 1.65,
+         number.digits = 2)
+```
+
+# Suppl.Fig8B
+```{r message=FALSE}
+log_fold <- gather(prot_noimp[,c(1:3,7:9,4:6)], key = "Load_ug", value = "log2_Intensity")
+
+
+log_fold$load <- "8ug"
+log_fold$load[grep("Low_", log_fold$Load_ug)] <- "2ug"
+log_fold$load[grep("Med", log_fold$Load_ug)] <- "4ug"
+
+
+log_fold$Load_ug <- factor(log_fold$Load_ug, levels = rev(unique(log_fold$Load_ug)), ordered = TRUE)
+
+
+
+ggplot(log_fold, aes(x = Load_ug, y = log2_Intensity, fill = load)) +
+  geom_violin() +
+  geom_boxplot(outlier.shape = NA, width = 0.1) +
+  scale_fill_manual(values = c("#313695", "#f6e8c3", "#f46d43")) +
+  labs(x = "Load input replicates", y = "log2(Protein intensity)",
+       fill = "Sample Concentration") +
+  theme_bw() +
+  theme(text = element_text(size = 35),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        legend.position = "bottom") +
+  scale_y_continuous(breaks=seq(5, 18, 2))
+```
+
+# Suppl.Fig8.C
+```{r message=FALSE}
+co.var.df <- function(x) (100*apply(x,1,sd)/rowMeans(x))
+
+prot_noimp <- read.csv("./Data/protein_quant_og_fragment_ms_noimp.csv")
+
+prot_noimp <- as.data.frame(prot_noimp[-1,])
+prot_noimp <- as.data.frame(prot_noimp[,-1])
+
+# 2918 proteins with no imputation from the dilution experiment
+rownames(prot_noimp) <- NULL
+
+prot_noimp <- column_to_rownames(prot_noimp, "Protein")
+
+prot_noimp_raw <- prot_noimp
+
+prot_noimp_raw <- 2^prot_noimp_raw
+
+prot_noimp_raw[is.na(prot_noimp_raw)] <- 0
+
+prot_noimp_raw$High_corr <- co.var.df(prot_noimp_raw[,c(1:3)])
+prot_noimp_raw$med_corr <- co.var.df(prot_noimp_raw[,c(7:9)])
+prot_noimp_raw$low_corr <- co.var.df(prot_noimp_raw[,c(4:6)])
+
+prot_noimp_raw$all_corr <- co.var.df(prot_noimp_raw[,c(1:9)])
+
+coeff_plot_noimp <- prot_noimp_raw[,c(10:13)]
+
+coeff_plot_noimp <- gather(coeff_plot_noimp, key = "load", value = "Coeff_var")
+
+coeff_plot_noimp$load_ug <- "8ug"
+
+coeff_plot_noimp$load_ug[grep("low_", coeff_plot_noimp$load)] <- "2ug"
+coeff_plot_noimp$load_ug[grep("med_", coeff_plot_noimp$load)] <- "4ug"
+coeff_plot_noimp$load_ug[grep("all_", coeff_plot_noimp$load)] <- "all_loads"
+
+
+coeff_plot_noimp <- filter(coeff_plot_noimp, !load == "all_corr")
+
+
+coeff_plot_noimp$load <- factor(coeff_plot_noimp$load, levels = rev(unique(coeff_plot_noimp$load)), ordered = TRUE)
+
+ggplot(coeff_plot_noimp, aes(x = load, y = Coeff_var, fill = load_ug)) +
+  geom_violin() +
+  scale_fill_manual(values = c("#313695", "#f6e8c3", "#f46d43")) +
+  theme_bw() +
+  theme(text = element_text(size = 35),
+        legend.position = "bottom") +
+  labs(x = "Load inputs for dilution series", y = "Coefficient of variance",
+       fill = "Sample Concentration")
+```
+
+# Suppl.Fig8E
+```{r message=FALSE}
+prot_noimp <- read.csv("./Suppl_data/protein_quant_og_fragment_ms_noimp.csv")
+
+prot_noimp <- as.data.frame(prot_noimp[-1,-1])
+
+# 2918 proteins with no imputation from the dilution experiment
+rownames(prot_noimp) <- NULL
+
+prot_noimp <- column_to_rownames(prot_noimp, "Protein")
+prot_noimp_nona <- na.omit(prot_noimp)
+
+prot_noimp_nona <- rownames_to_column(prot_noimp_nona, "Protein")
+prot_noimp_nona <- separate(prot_noimp_nona, col = "Protein", into = c("a", "b", "Protein"), sep = "\\|")
+
+prot_noimp_nona <- subset(prot_noimp_nona, select = -c(a,b))
+prot_noimp_nona <- separate(prot_noimp_nona, col = "Protein", into = c("Protein", "b"), sep = "_")
+prot_noimp_nona <- subset(prot_noimp_nona, select = -c(b))
+
+difference <- abs(prot_noimp_nona$High_7 - prot_noimp_nona$High_8)
+difference <- as.data.frame(difference)
+
+colnames(difference) <- c("high7_8")
+
+difference$high7_9 <- abs(prot_noimp_nona$High_7 - prot_noimp_nona$High_9)
+difference$high8_9 <- abs(prot_noimp_nona$High_8 - prot_noimp_nona$High_9)
+difference$Low1_2 <- abs(prot_noimp_nona$Low_1 - prot_noimp_nona$Low_2)
+difference$Low1_3 <- abs(prot_noimp_nona$Low_1 - prot_noimp_nona$Low_3)
+difference$Low2_3 <- abs(prot_noimp_nona$Low_2 - prot_noimp_nona$Low_3)
+difference$Medium4_5 <- abs(prot_noimp_nona$Medium_4 - prot_noimp_nona$Medium_5)
+difference$Medium4_6 <- abs(prot_noimp_nona$Medium_4 - prot_noimp_nona$Medium_6)
+difference$Medium5_6 <- abs(prot_noimp_nona$Medium_5 - prot_noimp_nona$Medium_6)
+
+
+difference$Protein <- prot_noimp_nona$Protein 
+
+s1 <- filter(prot_noimp_nona, Protein %in% (filter(difference, high7_8 >= 1))$Protein)
+s2 <- filter(prot_noimp_nona, Protein %in% (filter(difference, high7_9 >= 1))$Protein)
+s3 <- filter(prot_noimp_nona, Protein %in% (filter(difference, high8_9 >= 1))$Protein)
+s4 <- filter(prot_noimp_nona, Protein %in% (filter(difference, Low1_2 >= 1))$Protein)
+s5 <- filter(prot_noimp_nona, Protein %in% (filter(difference, Low1_3 >= 1))$Protein)
+s6 <- filter(prot_noimp_nona, Protein %in% (filter(difference, Low2_3 >= 1))$Protein)
+s7 <- filter(prot_noimp_nona, Protein %in% (filter(difference, Medium4_5 >= 1))$Protein)
+s8 <- filter(prot_noimp_nona, Protein %in% (filter(difference, Medium4_6 >= 1))$Protein)
+s9 <- filter(prot_noimp_nona, Protein %in% (filter(difference, Medium5_6 >= 1))$Protein)
+
+
+png("scatterplot_dulution_32921.png", width = 10, height = 8, units = "in", res = 600)
+par(mfrow=c(3,3))
+with(prot_noimp_nona, plot(High_7, High_8,
+                           col=ifelse(prot_noimp_nona$Protein%in%s1$Protein, "red", "black"),  main = round((cor.test(prot_noimp_nona$High_7,prot_noimp_nona$High_8))[["estimate"]][["cor"]], digits = 2)))
+text(s1[1:2,2:3], labels = s1[1:2,1], pos = 1)
+text(s1[3,2:3], labels = s1[3,1], pos = 3)
+
+with(prot_noimp_nona, plot(High_7, High_9,
+                           col=ifelse(prot_noimp_nona$Protein%in%s2$Protein, "red", "black"),  main = round((cor.test(prot_noimp_nona$High_7,prot_noimp_nona$High_9))[["estimate"]][["cor"]], digits = 2)))
+text(s2[,c(2,4)], labels = s2[,1], pos = 1)
+
+with(prot_noimp_nona, plot(High_8, High_9,
+                           col=ifelse(prot_noimp_nona$Protein%in%s3$Protein, "red", "black"),  main = round((cor.test(prot_noimp_nona$High_8,prot_noimp_nona$High_9))[["estimate"]][["cor"]], digits = 2)))
+text(s3[,3:4], labels = s3[,1], pos = 1)
+
+with(prot_noimp_nona, plot(Medium_4, Medium_5,
+                           col=ifelse(prot_noimp_nona$Protein%in%s7$Protein, "red", "black"),  main = round((cor.test(prot_noimp_nona$Medium_4,prot_noimp_nona$Medium_5))[["estimate"]][["cor"]], digits = 2)))
+text(s7[,8:9], labels = s7[,1], pos = 1)
+
+with(prot_noimp_nona, plot(Medium_4, Medium_6,
+                           col=ifelse(prot_noimp_nona$Protein%in%s8$Protein, "red", "black"),  main = round((cor.test(prot_noimp_nona$Medium_4,prot_noimp_nona$Medium_6))[["estimate"]][["cor"]], digits = 2)))
+text(s8[,c(8,10)], labels = s8[,1], pos = 1)
+
+with(prot_noimp_nona, plot(Medium_5, Medium_6,
+                           col=ifelse(prot_noimp_nona$Protein%in%s9$Protein, "red", "black"),  main = round((cor.test(prot_noimp_nona$Medium_5,prot_noimp_nona$Medium_6))[["estimate"]][["cor"]], digits = 2)))
+text(s9[,c(9:10)], labels = s9[,1], pos = 1)
+
+with(prot_noimp_nona, plot(Low_1, Low_2,
+                           col=ifelse(prot_noimp_nona$Protein%in%s4$Protein, "red", "black"),  main = round((cor.test(prot_noimp_nona$Low_1,prot_noimp_nona$Low_2))[["estimate"]][["cor"]], digits = 2)))
+text(s4[,c(5:6)], labels = s4[,1], pos = 1)
+
+with(prot_noimp_nona, plot(Low_1, Low_3,
+                           col=ifelse(prot_noimp_nona$Protein%in%s5$Protein, "red", "black"),  main = round((cor.test(prot_noimp_nona$Low_1,prot_noimp_nona$Low_3))[["estimate"]][["cor"]], digits = 2)))
+text(s5[,c(5,7)], labels = s5[,1], pos = 1)
+
+with(prot_noimp_nona, plot(Low_2, Low_3,
+                           col=ifelse(prot_noimp_nona$Protein%in%s6$Protein, "red", "black"),  main = round((cor.test(prot_noimp_nona$Low_2,prot_noimp_nona$Low_3))[["estimate"]][["cor"]], digits = 2)))
+text(s6[,c(6,7)], labels = s6[,1], pos = 1)
+dev.off()
+
+```
+

@@ -1,0 +1,115 @@
+---
+title: "Figure3_imputation"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# libraries
+```{r message=FALSE}
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(ggplot2)
+library(ComplexHeatmap)
+set.seed(4242)
+library(ggcorrplot)
+library(corrplot)
+library(circlize)
+library(RColorBrewer)
+library(viridis)
+library(readxl)
+library(colorspace)
+```
+
+# Figure 3.A
+```{r}
+classic_criteria_dil <- read_excel("./main_fig_data/classic_criteria_dil_80%.xlsx")
+
+classic_criteria_dil <- column_to_rownames(classic_criteria_dil, "Methods")
+
+rownames(classic_criteria_dil) <- c("BPCA", "LLS", "Random Forest", "KNNmethod",
+                                    "SVDmethod", "minDet",  "minProb","Zero")
+
+
+
+SOR_NRMSE_dil <- subset(classic_criteria_dil, select = c(SOR))
+
+classic_criteria_dil <- subset(classic_criteria_dil, select = -c(SOR))
+
+PSS_dil <- subset(classic_criteria_dil, select = c(PSS))
+classic_criteria_dil <- subset(classic_criteria_dil, select = -c(PSS))
+colnames(classic_criteria_dil) <- c("NRMSE", "ACC")
+
+colAnn2 <- rowAnnotation(`SOR_NRMSE` = anno_barplot(SOR_NRMSE_dil$SOR),
+                         width = unit(2, "cm"))
+colAnn3 <- rowAnnotation(`PSS` = anno_barplot(PSS_dil$PSS),
+                         width = unit(2, "cm"))
+
+s9 <- sequential_hcl(9, "Reds", rev = T)
+
+
+hmap <- Heatmap(
+  classic_criteria_dil,
+  name = "Classic criteria",
+  show_row_names = T,
+  show_column_names = T,
+  cluster_rows = F,
+  cluster_columns = F,
+  show_column_dend = TRUE,
+  show_row_dend = FALSE,
+  row_dend_reorder = TRUE,
+  column_dend_reorder = TRUE,
+  clustering_method_rows = "ward.D2",
+  clustering_method_columns = "ward.D2",
+  width = unit(100, "mm"), right_annotation = colAnn2,
+  left_annotation = colAnn3,
+  col = s9,
+  column_names_gp = gpar(fontsize = 25),
+  row_names_gp = gpar(fontsize = 25),
+  heatmap_legend_param = list(
+    title = "Classic criteria",
+    title_position = "leftcenter-rot"))
+
+draw(hmap, heatmap_legend_side="left")
+```
+
+# Figure 3.B
+```{r}
+prot_criteria_dil <- read_excel("./main_fig_data/prot_criteria_dil_80%.xlsx")
+
+prot_criteria_dil <- column_to_rownames(prot_criteria_dil, "Methods")
+
+rownames(prot_criteria_dil) <- c("BPCA", "KNNmethod", "LLS", "Random Forest",
+                                 "SVDmethod", "minDet", "minProb", "zero")
+
+
+hmap <- Heatmap(
+  prot_criteria_dil,
+  name = "Proteomic criteria",
+  show_row_names = T,
+  show_column_names = T,
+  cluster_rows = F,
+  cluster_columns = F,
+  show_column_dend = TRUE,
+  show_row_dend = FALSE,
+  row_dend_reorder = TRUE,
+  column_dend_reorder = TRUE,
+  clustering_method_rows = "ward.D2",
+  clustering_method_columns = "ward.D2",
+  width = unit(100, "mm"),
+  col = s9,
+  column_names_gp = gpar(fontsize = 25),
+  row_names_gp = gpar(fontsize = 25),
+  heatmap_legend_param = list(
+    title = "Proteomic criteria",
+    title_position = "leftcenter-rot"))
+
+draw(hmap, heatmap_legend_side="left", annotation_legend_side="right")
+```
+
+
+

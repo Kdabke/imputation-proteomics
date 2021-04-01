@@ -1,0 +1,155 @@
+---
+title: "Suppl.Fig6"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# library
+```{r message=FALSE}
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(ggplot2)
+
+```
+
+# Suppl.Fig.6A-B
+```{r message=FALSE}
+# pilot data SDF2 
+# summarized from featurealignment output mapDIA filtered
+pilot_noimp <- read.csv("./Data/prot_quant_msstats_mapdia_filt_SDF2_pilot_NOIMP_31621.csv")
+pilot_noimp <- as.data.frame(pilot_noimp[-1,-1])
+
+rownames(pilot_noimp) <- NULL
+pilot_noimp <- column_to_rownames(pilot_noimp, "Protein")
+
+# pilot data without mapDIA filter
+pilot_noimp_nofilter <- read.csv("./Data/protein_quant_norm_noimp.csv", stringsAsFactors = F)
+
+pilot_noimp_nofilter <- as.data.frame(pilot_noimp_nofilter[-1,-1])
+
+rownames(pilot_noimp_nofilter) <- NULL
+pilot_noimp_nofilter <- column_to_rownames(pilot_noimp_nofilter, "Protein")
+
+
+
+missing_values_bins <- function(data){
+  missing_byprotein <- as.data.frame(apply(data, 1, function(x) length(which(is.na(x)))))
+  colnames(missing_byprotein) <- "missing_percent"
+  missing_byprotein <- (missing_byprotein/ncol(data))*100
+  
+  # loop for calculating bins of missing values
+  bins <- c(1,10,11,20,21,30,31,40,41,50,51,60,61,70,71,80,81,90,91,100)
+  missing_bins_count <- list()
+  for (i in 1:20) {
+    missing_bins_count[[i]] <- count(filter(missing_byprotein, missing_percent > bins[i] & missing_percent < bins[i+1]))
+  }
+  
+  missing_bins_count <- as.data.frame(unlist(missing_bins_count))
+  missing_bins_count <- as.data.frame(missing_bins_count[c(seq(1,20, by = 2)),])
+  colnames(missing_bins_count) <- "absolute_no_of_proteins"
+  
+  # getting the first 0% bin
+  missing_bins_count[11,] <- (count(filter(missing_byprotein, missing_percent == 0)))$n
+  
+  missing_bins_count <- as.data.frame(missing_bins_count[c(11, 1:10),])
+  colnames(missing_bins_count) <- "absolute_no_of_proteins"
+  
+  rownames(missing_bins_count) <- c("0%","1-10%", "11-20%", "21-30%", "31-40%", "41-50%",  "51-60%", 
+                                    "61-70%", "71-80%", "81-90%", "91-100%")
+  
+  missing_bins_count$fraction_of_proteins <- missing_bins_count$`absolute_no_of_proteins`/nrow(data)*100
+  missing_bins_count <- rownames_to_column(missing_bins_count, "percent_missing_values")
+  missing_bins_count
+}
+
+pilot_missing_bins_nofilter <- missing_values_bins(pilot_noimp_nofilter)
+pilot_missing_bins_filter <- missing_values_bins(pilot_noimp)
+
+library(ggplot2)
+
+#png("./Figures/missing_bins_pilot_filter.png", width = 12, height = 8, units = "in", res = 600)
+ggplot(data =pilot_missing_bins_nofilter, aes(x = percent_missing_values, y =absolute_no_of_proteins)) +
+  geom_col() +
+  geom_text(aes(label=absolute_no_of_proteins), position=position_dodge(width=0.9), vjust=-0.25,
+            size = 10) +
+  theme_bw() +
+  theme(text = element_text(size = 25),
+        axis.text.x = element_text(angle = 45, vjust = 0.75, hjust = 0.75)) +
+  xlab("% missing values") + ylab("Absolute number of proteins") +
+  ylim(c(0,2100))
+#dev.off()
+
+ggplot(data =pilot_missing_bins_filter, aes(x = percent_missing_values, y =absolute_no_of_proteins)) +
+  geom_col() +
+  geom_text(aes(label=absolute_no_of_proteins), position=position_dodge(width=0.9), vjust=-0.25,
+            size = 10) +
+  theme_bw() +
+  theme(text = element_text(size = 25),
+        axis.text.x = element_text(angle = 45, vjust = 0.75, hjust = 0.75)) +
+  xlab("% missing values") + ylab("Absolute number of proteins") +
+  ylim(c(0,2100))
+```
+
+# Suppl.Fig6C-D
+```{r message=FALSE}
+# original protein quant data, no mapDIA filtration
+clinical_data_nofilter <- read.csv("./Data/protein_quant_corrected_norm.csv", stringsAsFactors = F)
+
+clinical_data_nofilter <- as.data.frame(clinical_data_nofilter[-1,-1])
+
+clinical_data_nofilter <- separate(clinical_data_nofilter, col = Protein, into = c("a", "b", "Protein"), sep = "\\|")
+
+clinical_data_nofilter <- subset(clinical_data_nofilter, select = -c(a,b))
+rownames(clinical_data_nofilter) <- NULL
+
+clinical_data_nofilter <- column_to_rownames(clinical_data_nofilter, "Protein")
+
+samples_primary_paired_tum_strm <- read.table("./Data/samples_primary_paired_tum_strm.txt",
+                                              stringsAsFactors = F)
+
+clinical_data_nofilter <- subset(clinical_data_nofilter, select = samples_primary_paired_tum_strm$V1)
+rots_noimp_prim <- read.csv("./Data/rots_prim_noimp.csv", stringsAsFactors = F)
+
+clinical_data_nofilter <- filter(clinical_data_nofilter, rownames(clinical_data_nofilter) %in% rots_noimp_prim$X)
+
+# clinical data after mapDIA filtration
+
+clinical_data <- read.csv("./Data/prot_quant_msstats_mapdia_filt_SDF1_prim_NOIMP_31221.csv", stringsAsFactors = F)
+
+clinical_data <- as.data.frame(clinical_data[-1,-1])
+
+rownames(clinical_data) <- NULL
+clinical_data <- column_to_rownames(clinical_data, "Protein")
+
+clinical_missing_bins_nofilter <- missing_values_bins(clinical_data_nofilter)
+clinical_missing_bins_filter <- missing_values_bins(clinical_data)
+
+#png("./Figures/missing_bins_clinical_nofilter.png", width = 12, height = 8, units = "in", res = 600)
+ggplot(data =clinical_missing_bins_nofilter, aes(x = percent_missing_values, y =absolute_no_of_proteins)) +
+  geom_col() +
+  geom_text(aes(label=absolute_no_of_proteins), position=position_dodge(width=0.9), vjust=-0.25,
+            size = 10) +
+  theme_bw() +
+  theme(text = element_text(size = 25),
+        axis.text.x = element_text(angle = 45, vjust = 0.75, hjust = 0.75)) +
+  xlab("% missing values") + ylab("Absolute number of proteins") +
+  ylim(c(0,1000))
+
+
+ggplot(data =clinical_missing_bins_filter, aes(x = percent_missing_values, y =absolute_no_of_proteins)) +
+  geom_col() +
+  geom_text(aes(label=absolute_no_of_proteins), position=position_dodge(width=0.9), vjust=-0.25,
+            size = 10) +
+  theme_bw() +
+  theme(text = element_text(size = 25),
+        axis.text.x = element_text(angle = 45, vjust = 0.75, hjust = 0.75)) +
+  xlab("% missing values") + ylab("Absolute number of proteins") +
+  ylim(c(0,900))
+
+```
+

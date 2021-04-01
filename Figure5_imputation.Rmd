@@ -1,0 +1,522 @@
+---
+title: "Figure6_revised_31521"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# loading libraries
+```{r message=FALSE}
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(ggplot2)
+library(ComplexHeatmap)
+set.seed(4242)
+library(ggcorrplot)
+library(corrplot)
+library(circlize)
+library(RColorBrewer)
+library(viridis)
+library(readxl)
+```
+
+
+# reading in all the files
+```{r message=FALSE}
+# ROTS DEPs
+# noimp
+rots_noimp_prim <- read.csv("./main_fig_data/rots_res_NOIMP_TvsS_SDF1_31221.csv", stringsAsFactors = F)
+
+# BPCA all log transformed
+rots_bpca_log2_prim <- read.csv("./main_fig_data/rots_res_BPCA_TvsS_SDF1_31221.csv", stringsAsFactors = F)
+
+# RF all log transformed
+rots_rf_log2_prim <- read.csv("./main_fig_data/rots_res_RF_TvsS_SDF1_31221.csv", stringsAsFactors = F)
+
+
+colnames(rots_noimp_prim) <- c("Protein", "log2FoldChange", "pvalue", "FDR",
+                               "col_FDR", "col_pvalue")
+
+
+colnames(rots_rf_log2_prim) <- colnames(rots_noimp_prim)
+colnames(rots_bpca_log2_prim) <- colnames(rots_noimp_prim)
+
+# non filtered pocroc data all 103 samples with replicates
+
+
+clinical_data <- read.csv("./main_fig_data/prot_quant_msstats_mapdia_filt_SDF1_prim_NOIMP_31221.csv", stringsAsFactors = F)
+
+clinical_data <- as.data.frame(clinical_data[-1,-1])
+clinical_data <- separate(clinical_data, col = Protein, into = c("a", "b", "Protein"), sep = "\\|")
+
+clinical_data <- subset(clinical_data, select = -c(a,b))
+rownames(clinical_data) <- NULL
+clinical_data <- column_to_rownames(clinical_data, "Protein")
+#pocroc_data <- column_to_rownames(pocroc_data, "From")
+
+# coldata for the entire data set
+
+coldata_final <- read.csv("./main_fig_data/coldata_final_103.csv", stringsAsFactors = F)
+
+
+coldata_final <- as.data.frame(coldata_final, stringsAsFactors = F)
+
+rownames(coldata_final) <- NULL
+
+coldata_final <- column_to_rownames(coldata_final, "X")
+coldata_final$TumorType[grep("Prim", coldata_final$TumorType)] <- "Primary"
+coldata_final$TumorType[grep("PRIMAR", coldata_final$TumorType)] <- "Primary"
+
+coldata_final$TumorType[grep("Recurr", coldata_final$TumorType)] <- "Recurrent"
+coldata_final$TumorType[grep("RECURR", coldata_final$TumorType)] <- "Recurrent"
+
+coldata_final$TumorType[grep("strm", coldata_final$phase)] <- "Stromal"
+coldata_final$TumorType[grep("all", coldata_final$TumorType)] <- "pool"
+
+coldata_final <- as.data.frame(coldata_final[-c(grep("pool", rownames(coldata_final))),])
+
+samples_primary_paired_tum_strm <- read.table("./main_fig_data/samples_primary_paired_tum_strm.txt",
+                                              stringsAsFactors = F)
+
+coldata_final_primary <- filter(coldata_final, rownames(coldata_final) %in% samples_primary_paired_tum_strm$V1)
+coldata_final_primary <- rownames_to_column(coldata_final_primary, "sample")
+coldata_final_primary[, 8] <- lapply(8, function(x) as.character(coldata_final_primary[[x]]))
+
+
+data_format_prot <- function(data){
+  if(sum(is.na(data) > 0)){
+    print("Data has missing values")
+    df <- na.omit(data)
+    df <- as.data.frame(df[-1,-1])
+    df <- separate(df, col = Protein, into = c("a", "b", "Protein"), sep = "\\|")
+    df <- subset(df, select = -c(a,b))
+    rownames(df) <- NULL
+    df <- column_to_rownames(df, "Protein")
+  } else{
+    print("Data has no NA values")
+    df <- as.data.frame(data)
+    df <- as.data.frame(df[-1,-1])
+    df <- separate(df, col = Protein, into = c("a", "b", "Protein"), sep = "\\|")
+    df <- subset(df, select = -c(a,b))
+    rownames(df) <- NULL
+    df <- column_to_rownames(df, "Protein")
+  }
+   df
+}
+
+# BPCA all log transformed
+prot_bpca_5k_log2 <- read.csv("./main_fig_data/prot_quant_msstats_mapdia_filt_SDF1_prim_BPCA_31221.csv", stringsAsFactors = F)
+prot_bpca_5k_log2 <- data_format_prot(prot_bpca_5k_log2)
+
+# RF all log tranformed
+prot_rf_5k_log2 <- read.csv("./main_fig_data/prot_quant_msstats_mapdia_filt_SDF1_prim_RF_31221.csv", stringsAsFactors = F)
+prot_rf_5k_log2 <- data_format_prot(prot_rf_5k_log2)
+
+
+# getting the coldata rownames the same order as protein data frame
+coldata_final_primary$tumor_stroma <- "Tumor"
+
+coldata_final_primary$tumor_stroma[grep("str", coldata_final_primary$phase)] <- "Stroma"
+
+coldata_final_primary$column_match <- paste(coldata_final_primary$tumor_stroma, coldata_final_primary$sample_id, sep = "_")
+
+clinical_data <- as.data.frame(clinical_data[,coldata_final_primary$column_match], stringsAsFactors = F)
+
+all(coldata_final_primary$column_match == colnames(prot_rf_5k_log2))
+
+prot_bpca_5k_log2 <- as.data.frame(prot_bpca_5k_log2[,coldata_final_primary$column_match], stringsAsFactors = F)
+prot_rf_5k_log2 <- as.data.frame(prot_rf_5k_log2[,coldata_final_primary$column_match], stringsAsFactors = F)
+
+
+coldata_final_primary <- column_to_rownames(coldata_final_primary, "column_match")
+
+all(rownames(coldata_final_primary) == colnames(prot_rf_5k_log2))
+all(rownames(coldata_final_primary) == colnames(prot_bpca_5k_log2))
+all(rownames(coldata_final_primary) == colnames(clinical_data))
+
+
+
+```
+
+# correlation pvalue and log2FC
+```{r message=FALSE}
+
+dim(rots_bpca_log2_prim)
+
+common <- intersect(rots_noimp_prim$Protein, rots_bpca_log2_prim$Protein)
+common <- intersect(common, rots_rf_log2_prim$Protein)
+
+noimp <- filter(rots_noimp_prim, Protein %in% common)
+
+cor.test(noimp$pvalue, rots_bpca_log2_prim$pvalue, method = "spearman", exact = F)
+
+cor.test(noimp$pvalue, rots_rf_log2_prim$pvalue, method = "spearman", exact = F)
+
+```
+
+# Table for KEGG enrichment
+```{r message=FALSE}
+#prot <- (filter(rots_rf_log2_prim, log2FoldChange < -0.5) %>% filter(., FDR < 0.05))$Protein
+
+#write.table(prot, "Protein_list.txt", quote = F, row.names = F, sep = "\t")
+
+
+bpca_kegg <- read.delim("./main_fig_data/enrichment.KEGG_BPCA_FDR_0.05_31521.tsv", sep = "\t", header = T)
+
+bpca_kegg <- bpca_kegg[order(bpca_kegg$false.discovery.rate),]
+
+bpca_kegg <- as.data.frame(bpca_kegg[1:5, c(1:6,8)])
+bpca_kegg$imputation <- "BPCA"
+
+
+rf_kegg <- read.delim("./main_fig_data/enrichment.KEGG_RF_FDR_0.05_31521.tsv", sep = "\t", header = T)
+
+rf_kegg <- rf_kegg[order(rf_kegg$false.discovery.rate),]
+
+rf_kegg <- as.data.frame(rf_kegg[1:5, c(1:6,8)])
+rf_kegg$imputation <- "Random_Forest"
+
+
+noimp_kegg <- read.delim("./main_fig_data/enrichment.KEGG_noimp_FDR_0.05_31521.tsv", sep = "\t", header = T)
+
+noimp_kegg <- noimp_kegg[order(noimp_kegg$false.discovery.rate),]
+
+noimp_kegg <- as.data.frame(noimp_kegg[1:5, c(1:6,8)])
+
+noimp_kegg$imputation <- "No_imputation"
+
+
+combined_kegg <- rbind(noimp_kegg, bpca_kegg, rf_kegg)
+combined_kegg <- as.data.frame(combined_kegg[,-1], stringsAsFactor = F)
+combined_kegg <- as.data.frame(combined_kegg[,c(7,1:6)], stringsAsFactor = F)
+
+combined_kegg
+```
+
+# linear regression table
+```{r message=FALSE}
+lm_imputation_prim <- function(data){
+  #df <- filter(data, rownames(data) %in% rownames(pocroc_data_primary_regression))
+  regression <- as.data.frame(t(data))
+  if(all(rownames(regression) == rownames(coldata_final_primary))){
+    regression$sample <- coldata_final_primary$strm_content
+  } else{
+    print("FALSE")
+  }
+  regression <- as.data.frame(regression[,c(dim(regression)[2], 1:dim(regression)[2] - 1)])
+  lm_strm_content <- t(sapply(2:ncol(regression),function(j){
+    fit <- lm(sample~regression[,j], data = regression)
+    summary(fit)$coef[2,c(1:4)]
+  } ) )
+  
+  lm_strm_content <- data.frame(lm_strm_content)
+  colnames(lm_strm_content) <- c("Estimate", "std_error", "t_value", "pvalue")
+  rownames(lm_strm_content) <- rownames(data)
+  lm_strm_content$FDR <- p.adjust(lm_strm_content$pvalue, method = "BH")
+  lm_strm_content <- lm_strm_content[order(lm_strm_content$pvalue),]
+  lm_strm_content$rank <- 1:nrow(lm_strm_content)
+  lm_strm_content <- rownames_to_column(lm_strm_content, "Protein")
+  lm_strm_content
+}
+
+
+# no imputation - statistically linear with estimate in negative
+lm_noimp <- lm_imputation_prim(clinical_data)
+lm_bpca <- lm_imputation_prim(prot_bpca_5k_log2)
+lm_rf <- lm_imputation_prim(prot_rf_5k_log2)
+
+lm_noimp$imputation <- "noimp"
+lm_bpca$imputation <- "BPCA"
+lm_rf$imputation <- "RF"
+
+combined <- rbind(filter(lm_noimp, Protein == "ACTBL_HUMAN"),
+                  filter(lm_bpca, Protein == "ACTBL_HUMAN"),
+                  filter(lm_rf, Protein == "ACTBL_HUMAN"),
+                  filter(lm_noimp, Protein == "G3P_HUMAN"),
+                  filter(lm_bpca, Protein == "G3P_HUMAN"),
+                  filter(lm_rf, Protein == "G3P_HUMAN"),
+                  filter(lm_noimp, Protein == "PAX8_HUMAN"),
+                  filter(lm_bpca, Protein == "PAX8_HUMAN"),
+                  filter(lm_rf, Protein == "PAX8_HUMAN"),
+                  filter(lm_noimp, Protein == "MUC16_HUMAN"),
+                  filter(lm_bpca, Protein == "MUC16_HUMAN"),
+                  filter(lm_rf, Protein == "MUC16_HUMAN")) 
+
+combined <- subset(combined, select = -c(rank, std_error, t_value))
+combined
+```
+
+
+# volcano plots
+```{r message=FALSE}
+highlight_protein <- read.csv("./main_fig_data/highlight_proteins_DEPs.csv", stringsAsFactors = F)
+
+# no impute
+df <- separate(rots_noimp_prim, col = "Protein", into = c("Protein", "b"),
+                                  sep = "_")
+library(ggrepel)
+
+ggplot(data = df, aes(x = log2FoldChange, y = -1*log10(pvalue))) + geom_point(size = 3, color = "grey") +
+  geom_point(data = filter(df, log2FoldChange >= 0.5) %>% filter(., FDR <= 0.05), color = "#e5f5f9", size = 4) +
+  geom_point(data = filter(df, log2FoldChange <= -0.5) %>% filter(., FDR <= 0.05), color = "#fee8c8", size = 4) +
+  geom_point(data = filter(df, Protein %in% highlight_protein$From) %>% filter(., log2FoldChange > 0.5) %>%
+               filter(., FDR <= 0.05), color = "Blue", size = 6) +
+  geom_label_repel(data = filter(df, Protein %in% highlight_protein$From) %>% filter(., log2FoldChange > 0.5) %>% 
+                     filter(., FDR <= 0.05), aes(label = Protein), nudge_x = -0.20, nudge_y = 0.05, size = 6) +
+  geom_point(data = filter(df, Protein %in% highlight_protein$From) %>% filter(., log2FoldChange < -0.5) %>% 
+               filter(., FDR <= 0.05), color = "brown", size = 6) +
+  geom_label_repel(data = filter(df, Protein %in% highlight_protein$From)  %>% filter(., log2FoldChange < -0.5) %>%
+                     filter(., FDR <= 0.05), aes(label = Protein), nudge_x = -0.20, nudge_y = 0.05, size = 6) +
+  labs(y = "-log10 pvalue") +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        text = element_text(size = 25)) +
+  labs(title = "DEPs; Noimp imputation; N=3860; colored by FDR < 0.05") 
+
+
+# BPCA impute
+df <- separate(rots_bpca_log2_prim, col = "Protein", into = c("Protein", "b"),
+                                  sep = "_")
+
+ggplot(data = df, aes(x = log2FoldChange, y = -1*log10(pvalue))) + geom_point(size = 3, color = "grey") +
+  geom_point(data = filter(df, log2FoldChange >= 0.5) %>% filter(., FDR <= 0.05), color = "#e5f5f9", size = 4) +
+  geom_point(data = filter(df, log2FoldChange <= -0.5) %>% filter(., FDR <= 0.05), color = "#fee8c8", size = 4) +
+  geom_point(data = filter(df, Protein %in% highlight_protein$From) %>% filter(., log2FoldChange > 0.5) %>%
+               filter(., FDR <= 0.05), color = "Blue", size = 6) +
+  geom_label_repel(data = filter(df, Protein %in% highlight_protein$From) %>% filter(., log2FoldChange > 0.5) %>% 
+                     filter(., FDR <= 0.05), aes(label = Protein), nudge_x = -0.20, nudge_y = 0.05, size = 6) +
+  geom_point(data = filter(df, Protein %in% highlight_protein$From) %>% filter(., log2FoldChange < -0.5) %>% 
+               filter(., FDR <= 0.05), color = "brown", size = 6) +
+  geom_label_repel(data = filter(df, Protein %in% highlight_protein$From)  %>% filter(., log2FoldChange < -0.5) %>%
+                     filter(., FDR <= 0.05), aes(label = Protein), nudge_x = -0.20, nudge_y = 0.05, size = 6) +
+  labs(y = "-log10 pvalue") +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        text = element_text(size = 25)) +
+  labs(title = "DEPs; BPCA imputation; N=3812; colored by FDR < 0.05") 
+
+# Random Forest
+df <- separate(rots_rf_log2_prim, col = "Protein", into = c("Protein", "b"),
+                                  sep = "_")
+
+ggplot(data = df, aes(x = log2FoldChange, y = -1*log10(pvalue))) + geom_point(size = 3, color = "grey") +
+  geom_point(data = filter(df, log2FoldChange >= 0.5) %>% filter(., FDR <= 0.05), color = "#e5f5f9", size = 4) +
+  geom_point(data = filter(df, log2FoldChange <= -0.5) %>% filter(., FDR <= 0.05), color = "#fee8c8", size = 4) +
+  geom_point(data = filter(df, Protein %in% highlight_protein$From) %>% filter(., log2FoldChange > 0.5) %>%
+               filter(., FDR <= 0.05), color = "Blue", size = 6) +
+  geom_label_repel(data = filter(df, Protein %in% highlight_protein$From) %>% filter(., log2FoldChange > 0.5) %>% 
+                     filter(., FDR <= 0.05), aes(label = Protein), nudge_x = -0.20, nudge_y = 0.05, size = 6) +
+  geom_point(data = filter(df, Protein %in% highlight_protein$From) %>% filter(., log2FoldChange < -0.5) %>% 
+               filter(., FDR <= 0.05), color = "brown", size = 6) +
+  geom_label_repel(data = filter(df, Protein %in% highlight_protein$From)  %>% filter(., log2FoldChange < -0.5) %>%
+                     filter(., FDR <= 0.05), aes(label = Protein), nudge_x = -0.20, nudge_y = 0.05, size = 6) +
+  labs(y = "-log10 pvalue") +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        text = element_text(size = 25)) +
+  labs(title = "DEPs; RF imputation; N=3812; colored by FDR < 0.05")
+```
+
+# individual proteins plot
+```{r message=FALSE}
+# plotting individual proteins
+# actbl, gapdh, muc16, pax8
+kelly.colours <- c("gray95", "gray13", "gold2", "plum4", "darkorange1", "lightskyblue2", "firebrick", "burlywood3", "gray51", "springgreen4", "lightpink2", "deepskyblue4", "lightsalmon2", 
+                   "mediumpurple4", "orange", "maroon", "yellow3", "brown4", "yellow4", "sienna4", "chocolate", "gray19")
+library(colorspace)
+s9 <- sequential_hcl(9, "Reds", rev = T)
+
+#coldata_final_primary <- rownames_to_column(coldata_final_primary, "sample")
+
+coldata_final_primary <- rownames_to_column(coldata_final_primary, "sample2")
+
+actbl <- function(data){
+  df <- as.data.frame(t(filter(data, rownames(data) == "ACTBL_HUMAN")))
+  df <- rownames_to_column(df, "sample")
+  if(all(df$sample == coldata_final_primary$sample2)){
+    df$strm_content <- coldata_final_primary$strm_content
+  }else{
+    print("FALSE")
+  }
+  df
+}
+
+gapdh <- function(data){
+  df <- as.data.frame(t(filter(data, rownames(data) == "G3P_HUMAN")))
+  df <- rownames_to_column(df, "sample")
+  if(all(df$sample == coldata_final_primary$sample2)){
+    df$strm_content <- coldata_final_primary$strm_content
+  }else{
+    print("FALSE")
+  }
+  df
+}
+
+pax8 <- function(data){
+  df <- as.data.frame(t(filter(data, rownames(data) == "PAX8_HUMAN")))
+  df <- rownames_to_column(df, "sample")
+  if(all(df$sample == coldata_final_primary$sample2)){
+    df$strm_content <- coldata_final_primary$strm_content
+  }else{
+    print("FALSE")
+  }
+  df
+}
+
+muc16 <- function(data){
+  df <- as.data.frame(t(filter(data, rownames(data) == "MUC16_HUMAN")))
+  df <- rownames_to_column(df, "sample")
+  if(all(df$sample == coldata_final_primary$sample2)){
+    df$strm_content <- coldata_final_primary$strm_content
+  }else{
+    print("FALSE")
+  }
+  df
+}
+
+# actbl
+actbl_noimp <- actbl(clinical_data)
+actbl_bpca_log2 <- actbl(prot_bpca_5k_log2)
+actbl_rf <- actbl(prot_rf_5k_log2)
+
+
+all(actbl_noimp$sample == actbl_bpca_log2$sample)
+all(actbl_noimp$sample == actbl_rf$sample)
+
+actbl_comb <- as.data.frame(cbind(actbl_noimp$ACTBL_HUMAN, actbl_bpca_log2$ACTBL_HUMAN,actbl_rf$ACTBL_HUMAN))
+colnames(actbl_comb) <- c("noimp", "bpca_log2", "Random_Forest")
+actbl_comb$sample <- actbl_noimp$sample
+actbl_comb$strm_content <- actbl_noimp$strm_content
+
+
+# gapdh
+g3p_noimp <- gapdh(clinical_data)
+g3p_bpca_log2 <- gapdh(prot_bpca_5k_log2)
+g3p_rf <- gapdh(prot_rf_5k_log2)
+
+
+all(g3p_noimp$sample == g3p_bpca_log2$sample)
+all(g3p_noimp$sample == g3p_rf$sample)
+g3p_comb <- as.data.frame(cbind(g3p_noimp$G3P_HUMAN, g3p_bpca_log2$G3P_HUMAN,
+                                g3p_rf$G3P_HUMAN))
+colnames(g3p_comb) <- c("noimp", "bpca_log2", "Random_Forest")
+g3p_comb$sample <- g3p_noimp$sample
+g3p_comb$strm_content <- g3p_noimp$strm_content
+
+
+# pax8
+pax8_noimp <- pax8(clinical_data)
+pax8_bpca_log2 <- pax8(prot_bpca_5k_log2)
+pax8_rf <- pax8(prot_rf_5k_log2)
+
+all(pax8_noimp$sample == pax8_bpca_log2$sample)
+all(pax8_noimp$sample == pax8_rf$sample)
+pax8_comb <- as.data.frame(cbind(pax8_noimp$PAX8_HUMAN, pax8_bpca_log2$PAX8_HUMAN,pax8_rf$PAX8_HUMAN))
+colnames(pax8_comb) <- c("noimp", "bpca_log2", "Random_forest")
+pax8_comb$sample <- pax8_noimp$sample
+pax8_comb$strm_content <- pax8_noimp$strm_content
+
+# muc16
+muc16_noimp <- muc16(clinical_data)
+muc16_bpca_log2 <- muc16(prot_bpca_5k_log2)
+muc16_rf <- muc16(prot_rf_5k_log2)
+
+all(muc16_noimp$sample == muc16_bpca_log2$sample)
+all(muc16_noimp$sample == muc16_rf$sample)
+muc16_comb <- as.data.frame(cbind(muc16_noimp$MUC16_HUMAN,
+                                  muc16_bpca_log2$MUC16_HUMAN,
+                                  muc16_rf$MUC16_HUMAN))
+
+colnames(muc16_comb) <- c("noimp", "bpca_log2",
+                          "Random_Forest")
+muc16_comb$sample <- muc16_bpca_log2$sample
+muc16_comb$strm_content <- muc16_bpca_log2$strm_content
+
+
+imp_prot <- cbind(actbl_comb, g3p_comb, pax8_comb, muc16_comb)
+colnames(imp_prot)
+
+imp_prot <- as.data.frame(imp_prot[,-c(9,10,14,15,19,20)])
+
+colnames(imp_prot) <- c("noimp.actbl", "BPCA.actbl",
+                        "RF.actbl",
+                        "sample", "strm_content",
+                        "noimp.g3p", "BPCA.g3p",
+                        "RF.g3p",
+                        "noimp.pax8", "BPCA.pax8", "RF.pax8",
+                        "noimp.muc16", "BPCA.muc16", "RF.muc16")
+
+imp_prot <- gather(imp_prot, key = "imputation", value = "intensity", -sample, -strm_content)
+imp_prot <- separate(imp_prot, col = "imputation", into = c("imputation", "Protein"), sep = "\\.")
+
+imp_prot$imputation[grep("noimp", imp_prot$imputation)] <- "None"
+imp_prot$imputation[grep("RF", imp_prot$imputation)] <- "Random Forest"
+
+imp_prot$imputation <- factor(imp_prot$imputation, levels = unique(imp_prot$imputation), ordered = TRUE)
+imp_prot$strm_content <- factor(imp_prot$strm_content, levels = c("0", "50", "100"), ordered = TRUE)
+
+imp_prot[is.na(imp_prot)] <- 0
+
+
+
+plot_actin <- ggplot(data =  filter(imp_prot, Protein == "actbl"), aes(x = imputation, y = intensity, fill = strm_content)) +
+  geom_boxplot() +
+  scale_fill_manual(values = kelly.colours[2:8]) +
+  theme_bw() +
+  theme(text = element_text(size = 35)) +
+  ggtitle("ACTBL") +
+  theme(legend.position = "none") +
+  #theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(x = "") +
+  ylab(expression(atop("Protein intensity", 
+                       paste("(log2)"))))
+
+plot_gapdh <- ggplot(data =  filter(imp_prot, Protein == "g3p"), aes(x = imputation, y = intensity, fill = strm_content)) +
+  geom_boxplot() +
+  scale_fill_manual(values = kelly.colours[2:8]) +
+  theme_bw() +
+  #scale_color_manual(values = c("#2ca25f", "#2c7fb8", "#756bb1", "black")) +
+  theme(text = element_text(size = 35)) +
+  ggtitle("GAPDH") +
+  theme(legend.position = "none") +
+  #theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "") +
+  ylab(expression(atop("Protein intensity", 
+                       paste("(log2)"))))
+
+plot_muc16 <- ggplot(data =  filter(imp_prot, Protein == "muc16"), aes(x = imputation, y = intensity, fill = strm_content)) +
+  geom_boxplot() +
+  scale_fill_manual(values = kelly.colours[2:8]) +
+  theme_bw() +
+  #scale_color_manual(values = c("#2ca25f", "#2c7fb8", "#756bb1", "black")) +
+  theme(text = element_text(size = 35)) +
+  ggtitle("MUC16") +
+  theme(legend.position = "none") +
+  #theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "") +
+  ylab(expression(atop("Protein intensity", 
+                       paste("(log2)"))))
+
+
+
+plot_pax8 <- ggplot(data =  filter(imp_prot, Protein == "pax8"), aes(x = imputation, y = intensity, fill = strm_content)) +
+  geom_boxplot() +
+  scale_fill_manual(values = kelly.colours[2:8]) +
+  theme_bw() +
+  #scale_color_manual(values = c("#2ca25f", "#2c7fb8", "#756bb1", "black")) +
+  theme(text = element_text(size = 35),
+        legend.position = "none") +
+  ggtitle("PAX8") +
+  #theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "", fill = "Stromal content") +
+  ylab(expression(atop("Protein intensity", 
+                       paste("(log2)"))))
+
+protein_grid <- cowplot::plot_grid(plot_actin, plot_gapdh, plot_muc16, plot_pax8)
+protein_grid
+```
+
